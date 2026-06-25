@@ -1,0 +1,13 @@
+---
+// Переиспользуемая карточка-CTA.
+interface Props {
+  text: string;
+  href: string;
+  label: string;
+}
+const { text, href, label } = Astro.props;
+---
+<div class="cta-card">
+  <p>{text}</p>
+  <a class="btn-open" href={href}>{label}</a>
+</div>

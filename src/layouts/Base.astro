@@ -1,0 +1,60 @@
+---
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { SITE } from '../config';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const {
+  title = 'Лёша Музыка',
+  description = 'Основатель Viralmaxing. Пишу про стартапы, системы, контент и вкус.',
+} = Astro.props;
+---
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script is:inline>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.dataset.theme = t;
+        } catch (e) {}
+      })();
+    </script>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    {SITE.gaId && (
+      <>
+        <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${SITE.gaId}`}></script>
+        <script is:inline set:html={`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${SITE.gaId}');`}></script>
+      </>
+    )}
+  </head>
+  <body>
+    <div class="container">
+      <Nav />
+      <slot />
+      <Footer />
+    </div>
+    <script is:inline>
+      document.getElementById('theme-toggle')?.addEventListener('click', function () {
+        var r = document.documentElement;
+        var n = r.dataset.theme === 'dark' ? 'light' : 'dark';
+        r.dataset.theme = n;
+        try { localStorage.setItem('theme', n); } catch (e) {}
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,38 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const books = (await getCollection('books'))
+  .filter((b) => b.data.category === 'biznes')
+  .sort((a, b) => (b.data.date?.getTime() ?? 0) - (a.data.date?.getTime() ?? 0));
+---
+
+<Base title="Книги · Бизнес — Лёша Музыка" description="Субъективный топ книг.">
+  <header class="head">
+    <div class="head-text">
+      <h1>Книги</h1>
+      <p class="lede">Мой субъективный топ книг, которые в той или иной мере на меня повлияли. Можете забрать себе, можете нет.</p>
+      <p class="subnote">Список пополняется время от времени.</p>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="tabs">
+      <a href={`${base}books`}>Художественная</a>
+      <a href={`${base}books/business`} aria-current="page">Бизнес</a>
+    </div>
+    <table class="tbl">
+      <thead><tr><th class="num">#</th><th>Книга</th><th>Автор</th></tr></thead>
+      <tbody>
+        {books.map((b, i) => (
+          <tr>
+            <td class="num">{i + 1}</td>
+            <td class="t">{b.data.link ? <a href={b.data.link}>{b.data.title} <span class="ext">↗</span></a> : b.data.title}</td>
+            <td class="by">{b.data.author}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+</Base>

@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import { agents } from '../data/agents';
+---
+
+<Base title="Агенты — Лёша Музыка" description="Открытые агенты, которыми пользуюсь сам.">
+  <header class="head">
+    <div class="head-text">
+      <h1>Агенты</h1>
+      <p class="lede">
+        Кроме Viralmaxing, перестраиваю агентами и остальную жизнь — много вожусь
+        с автоматизацией. Часть агентов, которыми пользуюсь сам, выкладываю
+        в открытый доступ на GitHub.
+      </p>
+    </div>
+  </header>
+
+  <section class="block">
+    {agents.map((a) => (
+      <div class="agent">
+        <h3><a class="card-link" href={a.href}>{a.name}</a></h3>
+        <p>{a.what}</p>
+      </div>
+    ))}
+  </section>
+</Base>
