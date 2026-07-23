@@ -5,6 +5,7 @@ export const SITE = {
   telegramDM: 'https://t.me/Lesha_Muzyka', // личка для консультаций
   github: 'https://github.com/alexey-muzyka-1',
   hermesAgent: 'https://github.com/alexey-muzyka-1/hermes-content-agent', // open-source контент-агент
+  hermesDocs: 'https://hermes-agent.nousresearch.com/docs/',
 
   // UTM нужен, чтобы Google Analytics НА СТОРОНЕ Viralmaxing видел,
   // что переход пришёл с этого сайта. Source можешь поменять на свой домен.

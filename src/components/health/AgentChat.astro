@@ -1,0 +1,64 @@
+<figure class="chat-figure" aria-labelledby="chat-caption">
+  <div class="chat-main">
+    <div class="chat-head">
+      <span class="agent-avatar">H</span>
+      <div>
+        <strong>Здоровье</strong>
+        <small>Hermes Agent · Telegram</small>
+      </div>
+      <i>online</i>
+    </div>
+    <div class="messages">
+      <div class="message user">
+        Сегодня сделал подтягивания: 5, 4, 4, 3, 3, 2. Последний подход тяжёлый, боли нет.
+        <span>18:42</span>
+      </div>
+      <div class="message agent">
+        Обновил тренировку 23 июля: 21 из 21, статус «выполнено», техника тяжёлая, боли нет. Следующую нагрузку не повышаю: рост уже заложен в плане.
+        <span>18:43</span>
+      </div>
+    </div>
+  </div>
+  <div class="chat-files">
+    <span class="files-label">ИЗМЕНЕНО В VAULT</span>
+    <div><i>MD</i><span><strong>2026-07-23 Подтягивания</strong><small>actual_reps: 21 · status: выполнено</small></span></div>
+    <div><i>↻</i><span><strong>Health.md</strong><small>следующая тренировка · 25 июля</small></span></div>
+  </div>
+  <figcaption id="chat-caption">Финальный уровень: чат становится входом, а файлы остаются источником истины.</figcaption>
+</figure>
+
+<style>
+  .chat-figure {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr;
+    margin: 30px 0;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--fg) 2%, var(--bg));
+  }
+  .chat-main { padding: 20px; border-right: 1px solid var(--line); }
+  .chat-head { display: flex; align-items: center; gap: 10px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+  .agent-avatar { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 50%; background: #758a78; color: #fff; font-family: var(--serif); }
+  .chat-head div { display: flex; flex-direction: column; line-height: 1.3; }
+  .chat-head strong { font-size: .8rem; }
+  .chat-head small { color: var(--muted); font-size: .65rem; }
+  .chat-head i { margin-left: auto; font-style: normal; color: #758a78; font-size: .62rem; }
+  .messages { display: flex; flex-direction: column; gap: 10px; padding-top: 18px; }
+  .message { max-width: 86%; padding: 11px 13px 8px; border-radius: 12px; font-size: .72rem; line-height: 1.5; }
+  .message span { display: block; text-align: right; font-size: .56rem; color: var(--muted); margin-top: 4px; }
+  .message.user { align-self: flex-end; background: color-mix(in srgb, #65956e 19%, var(--bg)); border-bottom-right-radius: 3px; }
+  .message.agent { align-self: flex-start; border: 1px solid var(--line); background: var(--bg); border-bottom-left-radius: 3px; }
+  .chat-files { padding: 26px 20px; }
+  .files-label { display: block; color: var(--muted); font-size: .6rem; letter-spacing: .12em; margin-bottom: 17px; }
+  .chat-files > div { display: flex; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .chat-files i { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--accent); font-size: .58rem; font-style: normal; }
+  .chat-files div span { display: flex; flex-direction: column; line-height: 1.4; min-width: 0; }
+  .chat-files strong { font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chat-files small { color: var(--muted); font-size: .58rem; }
+  figcaption { grid-column: 1 / -1; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; padding: 11px 15px 13px; }
+  @media (max-width: 650px) {
+    .chat-figure { grid-template-columns: 1fr; }
+    .chat-main { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>

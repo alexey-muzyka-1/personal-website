@@ -1,0 +1,67 @@
+---
+import Base from '../../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<Base
+  title="Статьи — Лёша Музыка"
+  description="Большие практические разборы систем, которые я собираю для работы и жизни."
+>
+  <header class="head article-list-head">
+    <div class="head-text">
+      <h1>Статьи</h1>
+      <p class="hero-desc">Большие разборы систем, которые я сначала собираю для себя.</p>
+    </div>
+  </header>
+
+  <section class="article-list" aria-label="Все статьи">
+    <a class="article-row" href={`${base}articles/digital-health`}>
+      <div class="article-date">23.07.2026</div>
+      <div>
+        <h2>Как я оцифровал своё здоровье</h2>
+        <p>Apple Watch, Obsidian и AI-агент в одной системе. Внутри бесплатный starter-vault и промпт.</p>
+      </div>
+      <span aria-hidden="true">→</span>
+    </a>
+  </section>
+</Base>
+
+<style>
+  .article-list-head { padding-bottom: 26px; }
+  .article-list {
+    border-top: 1px solid var(--line);
+    margin-top: 28px;
+  }
+  .article-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 22px;
+    align-items: start;
+    padding: 26px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .article-row:hover { color: inherit; }
+  .article-row:hover h2 { color: var(--accent); }
+  .article-date {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    padding-top: 4px;
+  }
+  h2 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+  }
+  p {
+    color: var(--muted);
+    margin: 0;
+  }
+  @media (max-width: 600px) {
+    .article-row {
+      grid-template-columns: 1fr auto;
+      gap: 8px 16px;
+    }
+    .article-date { grid-column: 1 / -1; }
+  }
+</style>

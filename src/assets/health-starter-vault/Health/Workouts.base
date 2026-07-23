@@ -1,0 +1,121 @@
+filters:
+  and:
+    - file.inFolder("Health/Workouts")
+    - type == "workout"
+formulas:
+  completion: if(actual_reps && planned_reps, ((actual_reps / planned_reps) * 100).round() + "%", "")
+properties:
+  workout_date:
+    displayName: Дата
+  workout_time:
+    displayName: Старт
+  duration_min:
+    displayName: Мин
+  workout_type:
+    displayName: Тип
+  status:
+    displayName: Статус
+  data_source:
+    displayName: Источник
+  distance_km:
+    displayName: Дистанция, км
+  avg_hr:
+    displayName: Пульс ср.
+  max_hr:
+    displayName: Пульс макс.
+  rpe:
+    displayName: RPE
+  pain_level:
+    displayName: Боль
+  planned_reps:
+    displayName: План
+  actual_reps:
+    displayName: Факт
+  formula.completion:
+    displayName: Выполнение
+views:
+  - type: table
+    name: Сегодня
+    filters:
+      and:
+        - workout_date == today()
+    order:
+      - file.name
+      - workout_time
+      - workout_type
+      - status
+      - duration_min
+      - planned_reps
+  - type: table
+    name: История
+    order:
+      - workout_date
+      - workout_time
+      - file.name
+      - workout_type
+      - status
+      - duration_min
+      - planned_reps
+      - actual_reps
+      - formula.completion
+    sort:
+      - property: workout_date
+        direction: DESC
+      - property: workout_time
+        direction: DESC
+  - type: table
+    name: Кардио
+    filters:
+      and:
+        - workout_type == "кардио"
+    order:
+      - workout_date
+      - file.name
+      - duration_min
+      - distance_km
+      - avg_hr
+      - max_hr
+      - rpe
+      - status
+    sort:
+      - property: workout_date
+        direction: DESC
+    summaries:
+      duration_min: Sum
+      distance_km: Sum
+  - type: table
+    name: Силовые
+    filters:
+      and:
+        - workout_type == "силовая"
+    order:
+      - workout_date
+      - file.name
+      - duration_min
+      - program
+      - planned_reps
+      - actual_reps
+      - formula.completion
+      - rpe
+      - pain_level
+      - status
+    sort:
+      - property: workout_date
+        direction: DESC
+  - type: table
+    name: Требует внимания
+    filters:
+      or:
+        - status == "скорректировано"
+        - status == "пропущено"
+        - pain_level > 0
+    order:
+      - workout_date
+      - file.name
+      - workout_type
+      - status
+      - pain_level
+      - rpe
+    sort:
+      - property: workout_date
+        direction: DESC
