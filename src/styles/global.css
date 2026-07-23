@@ -91,9 +91,20 @@ a:hover { color: var(--accent); }
 /* ---- карточка проекта ---- */
 .card { position: relative; display: flex; gap: 18px; align-items: flex-start; margin-top: 14px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; color: inherit; }
 .card:hover { color: inherit; border-color: var(--accent); }
-.card-logo-tg { display: flex; align-items: center; justify-content: center; background: #229ED9; color: #fff; }
-.card-logo-tg svg { width: 28px; height: 28px; }
 .card-logo { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; }
+.card-mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+  font-family: var(--serif);
+  font-size: 1.65rem;
+  color: var(--accent);
+}
 .card-body { min-width: 0; }
 .card-body h3 { font-size: 1.2rem; margin: 0 0 6px; }
 .card-body p { margin: 0 0 10px; }

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Как я оцифровал своё здоровье</title>
+  <desc id="desc">Apple Watch, Obsidian и AI-агент соединены в одну систему.</desc>
+  <defs>
+    <radialGradient id="washA" cx="0" cy="0" r="1" gradientTransform="translate(1060 40) rotate(136) scale(520 420)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8C4A9" stop-opacity=".58"/>
+      <stop offset="1" stop-color="#D8C4A9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="washB" cx="0" cy="0" r="1" gradientTransform="translate(78 600) rotate(-38) scale(490 360)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B9C9B7" stop-opacity=".62"/>
+      <stop offset="1" stop-color="#B9C9B7" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#382F24" flood-opacity=".09"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="#F7F5F0"/>
+  <rect width="1200" height="630" fill="url(#washA)"/>
+  <rect width="1200" height="630" fill="url(#washB)"/>
+
+  <text x="76" y="72" fill="#8F897E" font-family="Arial, sans-serif" font-size="16" font-weight="600" letter-spacing="3">ЛИЧНЫЙ ПРОЕКТ · 2026</text>
+  <text x="76" y="150" fill="#2B2926" font-family="Georgia, serif" font-size="62">Как я оцифровал</text>
+  <text x="76" y="218" fill="#2B2926" font-family="Georgia, serif" font-size="62">своё здоровье</text>
+  <text x="78" y="264" fill="#716B62" font-family="Arial, sans-serif" font-size="23">Apple Watch, Obsidian и AI-агент в одной системе</text>
+
+  <g transform="translate(76 338)" filter="url(#shadow)">
+    <rect width="220" height="154" rx="18" fill="#FBFAF7" stroke="#DCD7CB"/>
+    <text x="22" y="30" fill="#8F897E" font-family="Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="2">ФАКТ</text>
+    <rect x="22" y="49" width="58" height="70" rx="15" fill="#2B2926"/>
+    <rect x="31" y="57" width="40" height="54" rx="10" fill="#E8E2D7"/>
+    <path d="M42 86h7l5-13 8 25 5-12h7" fill="none" stroke="#B8794D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="96" y="72" fill="#2B2926" font-family="Georgia, serif" font-size="21">Apple Watch</text>
+    <text x="96" y="96" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">пульс · время</text>
+    <text x="96" y="116" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">дистанция</text>
+  </g>
+
+  <path d="M311 415h48" stroke="#AAA398" stroke-width="2"/>
+  <path d="M353 409l8 6-8 6" fill="none" stroke="#AAA398" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(376 338)" filter="url(#shadow)">
+    <rect width="220" height="154" rx="18" fill="#FBFAF7" stroke="#DCD7CB"/>
+    <text x="22" y="30" fill="#8F897E" font-family="Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="2">КОНТЕКСТ</text>
+    <rect x="22" y="52" width="52" height="62" rx="8" fill="#77618C"/>
+    <path d="M35 70h26M35 82h18M35 94h22" stroke="#F4F0F6" stroke-width="3" stroke-linecap="round"/>
+    <text x="91" y="72" fill="#2B2926" font-family="Georgia, serif" font-size="21">Obsidian</text>
+    <text x="91" y="96" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">план · факт</text>
+    <text x="91" y="116" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">самочувствие</text>
+  </g>
+
+  <path d="M611 415h48" stroke="#AAA398" stroke-width="2"/>
+  <path d="M653 409l8 6-8 6" fill="none" stroke="#AAA398" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(676 338)" filter="url(#shadow)">
+    <rect width="220" height="154" rx="18" fill="#FBFAF7" stroke="#DCD7CB"/>
+    <text x="22" y="30" fill="#8F897E" font-family="Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="2">РЕШЕНИЕ</text>
+    <circle cx="49" cy="83" r="29" fill="#718B74"/>
+    <path d="M39 83h20M49 73v20" stroke="#F8F7F3" stroke-width="3" stroke-linecap="round"/>
+    <text x="94" y="72" fill="#2B2926" font-family="Georgia, serif" font-size="21">AI-агент</text>
+    <text x="94" y="96" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">сводка</text>
+    <text x="94" y="116" fill="#8F897E" font-family="Arial, sans-serif" font-size="13">следующий план</text>
+  </g>
+
+  <g transform="translate(942 350)">
+    <rect width="178" height="132" rx="28" fill="#2B2926"/>
+    <circle cx="44" cy="43" r="17" fill="#718B74"/>
+    <text x="44" y="49" text-anchor="middle" fill="#FFF" font-family="Georgia, serif" font-size="18">H</text>
+    <text x="72" y="40" fill="#F7F5F0" font-family="Arial, sans-serif" font-size="13" font-weight="600">Hermes</text>
+    <text x="72" y="58" fill="#AFA99F" font-family="Arial, sans-serif" font-size="10">Telegram · online</text>
+    <rect x="25" y="78" width="128" height="30" rx="10" fill="#3B3935"/>
+    <text x="38" y="97" fill="#E9E5DE" font-family="Arial, sans-serif" font-size="10">Обновил тренировку ✓</text>
+  </g>
+
+  <line x1="76" y1="556" x2="1124" y2="556" stroke="#DDD8CD"/>
+  <text x="76" y="590" fill="#6B6256" font-family="Arial, sans-serif" font-size="17">alexeymuzyka.com</text>
+  <text x="1124" y="590" text-anchor="end" fill="#8F897E" font-family="Arial, sans-serif" font-size="15">Бесплатный гайд + starter-vault</text>
+</svg>

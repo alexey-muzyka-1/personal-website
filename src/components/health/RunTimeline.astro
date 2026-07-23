@@ -1,0 +1,126 @@
+<figure class="run-figure" aria-labelledby="run-caption">
+  <div class="run-head">
+    <span>ВОЗВРАЩЕНИЕ К БЕГУ</span>
+    <span>23–27 июня</span>
+  </div>
+  <div class="run-grid">
+    <div class="run-day">
+      <span class="day">23.06</span>
+      <strong>1,22 км</strong>
+      <span class="metric">ср. пульс 129</span>
+      <i style="--h: 32%"></i>
+    </div>
+    <div class="run-day">
+      <span class="day">24.06</span>
+      <strong>3,07 км</strong>
+      <span class="metric">ср. пульс 142</span>
+      <i style="--h: 78%"></i>
+    </div>
+    <div class="run-day">
+      <span class="day">25.06</span>
+      <strong>3,12 км</strong>
+      <span class="metric">ср. пульс 150</span>
+      <i style="--h: 80%"></i>
+    </div>
+    <div class="run-day">
+      <span class="day">26.06</span>
+      <strong>3,12 км</strong>
+      <span class="metric">ср. пульс 146</span>
+      <i style="--h: 80%"></i>
+    </div>
+    <div class="run-day is-last">
+      <span class="day">27.06</span>
+      <strong>3,17 км</strong>
+      <span class="metric">ср. пульс 152</span>
+      <i style="--h: 82%"></i>
+    </div>
+  </div>
+  <div class="run-note">
+    <strong>Данные задают вопрос, а не ставят диагноз.</strong>
+    <span>Пять тренировок подряд, другой темп, погода и восстановление. Без контекста рост пульса ничего не доказывает.</span>
+  </div>
+  <figcaption id="run-caption">Реальные агрегаты из Apple Health. Маршруты и точные координаты не сохраняются.</figcaption>
+</figure>
+
+<style>
+  .run-figure {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    overflow: hidden;
+    margin: 30px 0;
+    background: color-mix(in srgb, var(--fg) 2%, var(--bg));
+  }
+  .run-head {
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+  }
+  .run-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    min-height: 240px;
+  }
+  .run-day {
+    position: relative;
+    padding: 18px 14px 20px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .run-day:last-child { border-right: 0; }
+  .run-day .day {
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .run-day strong {
+    margin-top: 9px;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 500;
+  }
+  .metric {
+    color: var(--muted);
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+  .run-day i {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 0;
+    height: var(--h);
+    border-radius: 8px 8px 0 0;
+    background: linear-gradient(180deg, color-mix(in srgb, #b8794d 48%, transparent), color-mix(in srgb, #b8794d 8%, transparent));
+    z-index: 0;
+  }
+  .run-day > *:not(i) { position: relative; z-index: 1; }
+  .run-note {
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 18px;
+    padding: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .run-note strong { font-weight: 600; }
+  .run-note span { color: var(--muted); }
+  figcaption {
+    padding: 0 18px 14px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+  @media (max-width: 650px) {
+    .run-grid {
+      grid-template-columns: repeat(5, minmax(112px, 1fr));
+      overflow-x: auto;
+    }
+    .run-note { grid-template-columns: 1fr; gap: 6px; }
+  }
+</style>

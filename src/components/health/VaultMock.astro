@@ -1,0 +1,128 @@
+<figure class="vault-figure" aria-labelledby="vault-caption">
+  <div class="vault-bar">
+    <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span>Health · Obsidian</span>
+    <span class="vault-status">локальные Markdown-файлы</span>
+  </div>
+  <div class="vault-window">
+    <aside>
+      <strong>HEALTH</strong>
+      <span class="active">⌁ Dashboard</span>
+      <span>▾ Workouts</span>
+      <small>2026-06-23 Run</small>
+      <small>2026-06-24 Run</small>
+      <small>2026-07-23 Pull-ups</small>
+      <span>▸ Plans</span>
+      <span>▸ Labs</span>
+      <span>▸ Metrics</span>
+      <span>▸ _templates</span>
+    </aside>
+    <div class="vault-main">
+      <div class="vault-title">
+        <div>
+          <span class="eyebrow">СПОРТ / ИСТОРИЯ</span>
+          <h3>План и факт</h3>
+        </div>
+        <span class="filter">Последние 30 дней⌄</span>
+      </div>
+      <div class="vault-table">
+        <div class="tr th">
+          <span>Дата</span><span>Тип</span><span>План</span><span>Факт</span><span>Состояние</span>
+        </div>
+        <div class="tr">
+          <span>23 июн</span><span>бег</span><span>лёгкий</span><span>1,22 км</span><span class="ok">готово</span>
+        </div>
+        <div class="tr">
+          <span>24 июн</span><span>бег</span><span>2–3 км</span><span>3,07 км</span><span class="ok">готово</span>
+        </div>
+        <div class="tr">
+          <span>27 июн</span><span>бег</span><span>лёгкий</span><span>3,17 км</span><span class="warn">тяжело</span>
+        </div>
+        <div class="tr">
+          <span>23 июл</span><span>силовая</span><span>21 повтор</span><span>—</span><span>сегодня</span>
+        </div>
+      </div>
+      <div class="vault-summary">
+        <div><span>Тренировок</span><strong>20</strong></div>
+        <div><span>Активность</span><strong>1 082 мин</strong></div>
+        <div><span>Дистанция</span><strong>103,78 км</strong></div>
+      </div>
+    </div>
+  </div>
+  <figcaption id="vault-caption">Обезличенный макет. Спортивные агрегаты реальные, медицинские документы и маршруты сюда не попали.</figcaption>
+</figure>
+
+<style>
+  .vault-figure {
+    margin: 32px 0;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #1e1f22;
+    color: #e7e5e0;
+    box-shadow: 0 22px 60px rgba(0,0,0,.16);
+  }
+  .vault-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    min-height: 42px;
+    padding: 0 14px;
+    border-bottom: 1px solid #34353a;
+    color: #aaa9a5;
+    font-size: 0.68rem;
+  }
+  .vault-status { justify-self: end; }
+  .dots { display: flex; gap: 6px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #55565a; }
+  .vault-window {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    min-height: 430px;
+  }
+  aside {
+    padding: 22px 14px;
+    border-right: 1px solid #34353a;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    background: #202125;
+    font-size: 0.72rem;
+    color: #aaa9a5;
+  }
+  aside strong { font-size: 0.62rem; letter-spacing: .13em; color: #777873; margin-bottom: 8px; }
+  aside span, aside small { padding: 5px 8px; border-radius: 5px; }
+  aside small { padding-left: 23px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  aside .active { color: #fff; background: #303136; }
+  .vault-main { padding: 30px 28px; overflow: hidden; }
+  .vault-title { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 24px; }
+  .eyebrow { color: #8a8b86; font-size: 0.58rem; letter-spacing: .13em; }
+  h3 { color: #f2f0eb; margin: 4px 0 0; font-size: 1.35rem; }
+  .filter { border: 1px solid #3b3c41; border-radius: 6px; padding: 7px 9px; color: #aaa9a5; font-size: .66rem; }
+  .vault-table { min-width: 540px; border: 1px solid #34353a; border-radius: 8px; overflow: hidden; }
+  .tr {
+    display: grid;
+    grid-template-columns: .8fr .8fr 1.1fr 1fr 1fr;
+    border-bottom: 1px solid #34353a;
+  }
+  .tr:last-child { border-bottom: 0; }
+  .tr span { padding: 10px 11px; font-size: .67rem; border-right: 1px solid #34353a; }
+  .tr span:last-child { border-right: 0; }
+  .th { color: #858681; background: #242529; }
+  .th span { font-size: .58rem; letter-spacing: .06em; text-transform: uppercase; }
+  .ok { color: #8bb58c; }
+  .warn { color: #d2a06f; }
+  .vault-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .vault-summary div { border: 1px solid #34353a; border-radius: 8px; padding: 12px; }
+  .vault-summary span { display: block; color: #858681; font-size: .6rem; margin-bottom: 3px; }
+  .vault-summary strong { font-size: .82rem; font-weight: 500; }
+  figcaption { padding: 12px 16px 14px; border-top: 1px solid #34353a; color: #858681; font-size: .72rem; }
+  @media (max-width: 650px) {
+    .vault-window { grid-template-columns: 1fr; }
+    aside { display: none; }
+    .vault-main { padding: 22px 16px; overflow-x: auto; }
+    .vault-bar { grid-template-columns: 1fr 1fr; }
+    .vault-bar > span:nth-child(2) { display: none; }
+    .vault-summary { min-width: 540px; }
+  }
+</style>

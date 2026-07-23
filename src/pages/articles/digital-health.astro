@@ -1,0 +1,1091 @@
+---
+import Base from '../../layouts/Base.astro';
+import HealthSystemVisual from '../../components/health/HealthSystemVisual.astro';
+import RunTimeline from '../../components/health/RunTimeline.astro';
+import VaultMock from '../../components/health/VaultMock.astro';
+import AgentChat from '../../components/health/AgentChat.astro';
+import { SITE } from '../../config';
+import agentPrompt from '../../assets/health-starter-vault/PROMPT-FOR-AGENT.md?raw';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const downloadUrl = `${base}assets/health-starter-vault.zip`;
+---
+
+<Base
+  title="Как я оцифровал своё здоровье: Apple Watch, Obsidian и AI"
+  description="Личный кейс и бесплатный гайд: собираем систему здоровья из Apple Watch, Obsidian и AI-агента. Внутри starter-vault и готовый промпт."
+  image="/health/digital-health-cover.png"
+  article
+>
+  <main class="article">
+    <header class="article-hero">
+      <a class="back-link" href={`${base}articles`}>← Все статьи</a>
+      <div class="article-meta">
+        <time datetime="2026-07-23">23 июля 2026</time>
+      </div>
+      <h1>Как я оцифровал своё здоровье с помощью Apple Watch, Obsidian и AI</h1>
+      <p class="article-lede">
+        Часы знали, что я сделал. Заметки знали, что я планировал. Я собрал место, где эти два мира наконец встретились.
+      </p>
+      <div class="hero-actions">
+        <button class="action action-primary" type="button" data-copy-prompt>
+          <span class="action-icon" aria-hidden="true">⌘</span>
+          <span><strong>Скопировать промпт</strong><small>для ChatGPT, Codex или Cursor</small></span>
+        </button>
+        <a class="action" href={downloadUrl} download>
+          <span class="action-icon" aria-hidden="true">↓</span>
+          <span><strong>Скачать starter-vault</strong><small>пустая структура Obsidian · ZIP</small></span>
+        </a>
+      </div>
+      <p class="copy-status" aria-live="polite"></p>
+    </header>
+
+    <div class="wide">
+      <HealthSystemVisual />
+    </div>
+
+    <aside class="article-summary" aria-label="Коротко">
+      <span>КОРОТКО</span>
+      <p>Трекер собирает объективные факты. Obsidian хранит планы, ощущения и историю. Агент соединяет их, но не изображает врача.</p>
+    </aside>
+
+    <section class="requirements" aria-labelledby="requirements-title">
+      <div class="requirements-head">
+        <span>БЫСТРЫЙ СТАРТ</span>
+        <h2 id="requirements-title">Что вам понадобится</h2>
+      </div>
+      <div class="requirements-grid">
+        <a href="https://obsidian.md/download">
+          <span class="requirement-icon" aria-hidden="true">◈</span>
+          <span><strong>Obsidian</strong><small>Скачать бесплатно ↗</small></span>
+        </a>
+        <div>
+          <span class="requirement-icon" aria-hidden="true">⌚</span>
+          <span><strong>Трекер</strong><small>Apple Watch или аналог</small></span>
+        </div>
+        <div>
+          <span class="requirement-icon" aria-hidden="true">✦</span>
+          <span><strong>AI-агент</strong><small>С доступом к файлам</small></span>
+        </div>
+        <div>
+          <span class="requirement-icon" aria-hidden="true">20</span>
+          <span><strong>20 минут</strong><small>Для первой версии</small></span>
+        </div>
+      </div>
+    </section>
+
+    <nav class="toc" aria-label="Содержание">
+      <span>В этой статье</span>
+      <ol>
+        <li><a href="#why">Почему прошлые попытки не работали</a></li>
+        <li><a href="#architecture">Из каких слоёв состоит система</a></li>
+        <li><a href="#build">Как собрать свою версию</a></li>
+        <li><a href="#apple-health">Как подключить Apple Health</a></li>
+        <li><a href="#prompt">Готовый промпт для агента</a></li>
+        <li><a href="#hermes">Как я превратил vault в постоянного агента</a></li>
+      </ol>
+    </nav>
+
+    <section id="why" class="prose-section">
+      <p class="section-number">01</p>
+      <h2>Несколько лет я оцифровывал здоровье кусками</h2>
+
+      <p>Я AI-энтузиаст, поэтому тема здоровья постоянно казалась идеальным полигоном. Данных много, решения повторяются, история важна. Значит, агент должен быть полезен.</p>
+
+      <p>На практике мои эксперименты жили отдельно друг от друга. Я выгружал сон и параллельно отмечал настроение, чтобы найти корреляции. Вручную записывал тренировки в Obsidian. Складывал анализы в папку. Каждый подход работал пару недель, затем превращался в ещё одну заброшенную таблицу.</p>
+
+      <blockquote>
+        <p>Проблема была не в нехватке данных. У меня не было места, где план, факт и контекст встречались бы друг с другом.</p>
+      </blockquote>
+
+      <h3>Возвращение к бегу сделало проблему видимой</h3>
+
+      <p>Год назад я много бегал, потом выпал из режима. Когда решил вернуться, мне уже не хотелось просто снова наматывать километры. Я хотел восстановить форму осознанно и одновременно не бросать большую силовую цель по подтягиваниям.</p>
+
+      <p>За пять дней беговая часть моих прогулок выросла примерно с 1,2 до 3,2 км. Средний пульс поднялся со 129 до 152. Это не вывод и не диагноз. Менялись темп, погода, накопленная нагрузка и восстановление. Но именно поэтому одной красивой линии в приложении недостаточно.</p>
+
+      <div class="wide">
+        <RunTimeline />
+      </div>
+
+      <p>Мне была нужна система, которая видит обе линии. Возвращение к бегу и программу подтягиваний. Она должна знать план, фактически выполненную нагрузку и моё описание тренировки, а потом помочь не запланировать следующую неделю вслепую.</p>
+    </section>
+
+    <section id="architecture" class="prose-section">
+      <p class="section-number">02</p>
+      <h2>Четыре слоя одной системы</h2>
+
+      <p>Сейчас моя система держится на четырёх слоях. Каждый отвечает только за свою часть работы.</p>
+
+      <div class="principles">
+        <article>
+          <span>01</span>
+          <h3>Ручная запись</h3>
+          <p>Я планирую тренировки в Obsidian. Там же пишу подходы, технику, боль и самочувствие. Это контекст, которого нет у часов.</p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>Apple Watch</h3>
+          <p>Часы почти всегда на мне. Во время занятий я включаю режим тренировки, поэтому остаются длительность, дистанция, энергия и пульс.</p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>Импорт</h3>
+          <p>Раз в неделю или две я выгружаю Apple Health. Парсер вытаскивает нужные тренировки и дополняет существующие заметки.</p>
+        </article>
+        <article>
+          <span>04</span>
+          <h3>Агент</h3>
+          <p>Агент читает Markdown, сравнивает план с фактом, собирает недельную сводку и помогает подготовить следующее решение.</p>
+        </article>
+      </div>
+
+      <p>Apple Watch не заменяют дневник. Дневник не заменяет измерения. Агент не заменяет врача. Система полезна именно потому, что эти границы не размыты.</p>
+
+      <div class="wide">
+        <VaultMock />
+      </div>
+
+      <h3>Чем длиннее история, тем полезнее агент</h3>
+
+      <p>Я начал складывать в тот же контур все исследования, которые у меня есть. Бумажный анализ можно отсканировать. Агент переносит дату, лабораторию, показатель, единицу и референс. Текстовое заключение УЗИ, ЭКГ или рентгена становится частью хронологии.</p>
+
+      <p>Сырые снимки и медицинские выводы остаются специалисту. Моя система умеет найти старый результат, показать изменение совместимых показателей и собрать вопросы к врачу. Она не должна диагностировать по изображению или советовать лечение.</p>
+
+      <aside class="boundary">
+        <strong>Правильное обещание системы</strong>
+        <p>Не «личный AI-врач», а внешняя память и аналитик здоровья. Он знает хронологию, не забывает контекст и помогает задавать более точные вопросы.</p>
+      </aside>
+    </section>
+
+    <section id="build" class="prose-section">
+      <p class="section-number">03</p>
+      <h2>Соберите минимальную версию за один вечер</h2>
+
+      <p>Для старта не нужен мой vault и не нужен Hermes. Достаточно Obsidian и любого агента, который умеет работать с файлами. Если Obsidian у вас ещё нет, создайте новый vault. Если уже есть, добавьте в него один раздел.</p>
+
+      <div class="build-levels">
+        <div>
+          <span>20 минут</span>
+          <strong>Минимум</strong>
+          <p>Папки, шаблон тренировки и ручная фиксация.</p>
+        </div>
+        <div>
+          <span>1 вечер</span>
+          <strong>Рабочая система</strong>
+          <p>Properties, Bases, план против факта и первый дашборд.</p>
+        </div>
+        <div>
+          <span>потом</span>
+          <strong>Автоматизация</strong>
+          <p>Apple Health, защита от дублей и постоянный агент.</p>
+        </div>
+      </div>
+
+      <h3>1. Создайте простую структуру</h3>
+
+      <pre class="file-tree"><code>Health/
+├── Dashboard.md
+├── Workouts.base
+├── Schema.md
+├── Workouts/
+├── Plans/
+├── Labs/
+├── Metrics/
+└── _templates/</code></pre>
+
+      <p>Не пытайтесь сразу собрать все возможные метрики. Начните с вопросов, на которые система должна отвечать: выполнил ли я план, как меняется объём, где появилась боль, что скорректировать на следующей неделе.</p>
+
+      <h3>2. Одна тренировка равна одному файлу</h3>
+
+      <p>YAML-свойства дают структуру агенту и Obsidian Bases. Обычный текст остаётся удобным человеку.</p>
+
+      <pre><code>---
+type: workout
+workout_type: кардио
+workout_date: 2026-07-15
+workout_time: "13:36"
+duration_min: 61
+status: выполнено
+data_source: apple_health
+source_record_id: "..."
+distance_km: 5.29
+avg_hr: 129
+max_hr: 173
+rpe:
+pain_level: 0
+---
+
+## План
+- Лёгкий бег 2 км внутри прогулки.
+
+## Факт
+- Бег 2,05 км. Без боли.
+
+## После
+- Нагрузку пока не повышать.</code></pre>
+
+      <p>План и факт должны быть разными сущностями. Если тренировка уже была запланирована, импорт обновляет её, а не создаёт второй файл. Ручные разделы не перезаписываются.</p>
+
+      <h3>3. Включите только встроенные возможности Obsidian</h3>
+
+      <p>Для первой версии достаточно <a href="https://obsidian.md/help/properties">Properties</a>, <a href="https://obsidian.md/help/bases">Bases</a> и <a href="https://obsidian.md/help/plugins/templates">Templates</a>. Bases строит таблицы поверх обычных Markdown-файлов. Данные не запираются в отдельной базе.</p>
+
+      <p>Community plugins можно добавить позже. Obsidian предупреждает, что такие плагины выполняют сторонний код с правами приложения. Для медицинских данных разумнее начать с встроенных функций и минимального числа расширений.</p>
+
+      <div class="inline-cta">
+        <div>
+          <span>НЕ ХОТИТЕ СОБИРАТЬ ВРУЧНУЮ?</span>
+          <strong>Я уже упаковал пустой vault.</strong>
+          <p>Структура, шаблоны, Base и тот же промпт, который опубликован ниже.</p>
+        </div>
+        <a href={downloadUrl} download>Скачать ZIP <span>↓</span></a>
+      </div>
+    </section>
+
+    <section id="apple-health" class="prose-section">
+      <p class="section-number">04</p>
+      <h2>Подключите Apple Health без магии</h2>
+
+      <p>Важное ограничение: у Apple нет готовой кнопки «синхронизировать Health в Obsidian». Встроенная функция создаёт полный XML-экспорт. Это хороший способ загрузить историю, но не постоянный поток.</p>
+
+      <ol class="steps">
+        <li>
+          <span>1</span>
+          <div>
+            <strong>Записывайте тренировки часами</strong>
+            <p>Запускайте Workout на Apple Watch. Набор сохранённых показателей зависит от типа занятия, но обычно в запись попадают длительность, энергия, пульс и дистанция.</p>
+          </div>
+        </li>
+        <li>
+          <span>2</span>
+          <div>
+            <strong>Выгрузите историю</strong>
+            <p>На iPhone откройте Health, профиль и функцию Export All Health Data. Apple описывает этот экспорт как XML. <a href="https://support.apple.com/guide/iphone/share-your-health-data-iph5ede58c3d/ios">Официальная инструкция Apple</a>.</p>
+          </div>
+        </li>
+        <li>
+          <span>3</span>
+          <div>
+            <strong>Разберите архив вне vault</strong>
+            <p>Исходный ZIP и GPX не должны попадать в Obsidian или Git. Маршруты содержат точные координаты. Агенту нужны нормализованные сводки, а не весь сырой архив.</p>
+          </div>
+        </li>
+        <li>
+          <span>4</span>
+          <div>
+            <strong>Обновите существующие файлы</strong>
+            <p>Сначала сопоставляйте тренировки по идентификатору, затем по дате, типу и времени. Повторный импорт должен обновить запись, а не создать дубль.</p>
+          </div>
+        </li>
+      </ol>
+
+      <h3>Три уровня подключения</h3>
+
+      <div class="comparison" role="table" aria-label="Уровни подключения Apple Health">
+        <div class="comparison-row comparison-head" role="row">
+          <span role="columnheader">Уровень</span>
+          <span role="columnheader">Способ</span>
+          <span role="columnheader">Для чего</span>
+        </div>
+        <div class="comparison-row" role="row">
+          <strong role="cell">Базовый</strong>
+          <span role="cell">Полный XML</span>
+          <span role="cell">Первичная история и импорт раз в неделю или две</span>
+        </div>
+        <div class="comparison-row" role="row">
+          <strong role="cell">Практичный</strong>
+          <span role="cell">Apple Shortcuts</span>
+          <span role="cell">Дневная сводка и заметка после тренировки</span>
+        </div>
+        <div class="comparison-row" role="row">
+          <strong role="cell">Инженерный</strong>
+          <span role="cell">HealthKit app</span>
+          <span role="cell">Надёжный выборочный и инкрементальный импорт</span>
+        </div>
+      </div>
+
+      <p>Я использую первый путь с собственным потоковым парсером. Он объединяет соседние сегменты ходьбы и бега, хранит исходные идентификаторы и не трогает мои ручные заметки. Для бесплатного гайда этого достаточно. Строить iOS-приложение ради первой версии не нужно.</p>
+
+      <aside class="technical-note">
+        <strong>Две ошибки, которые легко пропустить</strong>
+        <p>Не складывайте шаги iPhone и Apple Watch без дедупликации. Их интервалы пересекаются. И никогда не превращайте отсутствующее значение в ноль. У устройства могло не быть разрешения или записи.</p>
+      </aside>
+
+      <h3>Если у вас не Apple Watch</h3>
+
+      <p>Принцип остаётся тем же: нужен способ забрать собственные данные. <a href="https://support.ouraring.com/hc/en-us/articles/42985877449619-Export-Share-Your-Oura-Data">Oura</a> и <a href="https://support.whoop.com/s/article/How-to-Export-Your-Data">WHOOP</a> дают ручной экспорт и официальные API. <a href="https://support.garmin.com/en-IN/?faq=W1TvTPW8JZ6LfJSfK512Q8">Garmin</a> позволяет выгружать активности и полный архив. Я не проверял эти контуры лично, поэтому не буду изображать пошаговую инструкцию.</p>
+
+      <p>Трекер вообще не обязателен для планов и ручного журнала. Но без носимого устройства не получится бесшовно собирать непрерывную биометрию. Чем длиннее качественная история, тем полезнее агент.</p>
+    </section>
+
+    <section class="prose-section">
+      <p class="section-number">05</p>
+      <h2>Сканируйте бумагу, но не отдавайте агенту роль врача</h2>
+
+      <p>В систему можно добавить старые бумажные анализы и заключения. Я сканирую их, агент распознаёт текст и создаёт карточку. В ней есть дата, тип исследования, значения, единицы, референсы и официальный текст заключения.</p>
+
+      <div class="lab-card" aria-label="Пример карточки анализа на вымышленных данных">
+        <div class="lab-card-head">
+          <span>LAB RESULT · ДЕМО-ДАННЫЕ</span>
+          <strong>2026-02-14 · Базовый скрининг</strong>
+        </div>
+        <div class="lab-row lab-header"><span>Показатель</span><span>Значение</span><span>Референс</span><span>Статус</span></div>
+        <div class="lab-row"><span>Показатель A</span><span>4,2 ед.</span><span>3,0–5,5</span><span class="is-ok">в пределах</span></div>
+        <div class="lab-row"><span>Показатель B</span><span>12,8 ед.</span><span>5,0–10,0</span><span class="is-attention">обсудить</span></div>
+        <p>Вопрос врачу: нужен ли повторный контроль и при каких условиях?</p>
+      </div>
+
+      <p>Система может напомнить, что показатель пора перепроверить, и собрать его историю. Она не должна диагностировать по рентгену, сырой ЭКГ или снимку УЗИ. Для таких документов агент переносит текст заключения специалиста.</p>
+
+      <h3>Приватность является частью архитектуры</h3>
+
+      <ul>
+        <li>Сырой Apple Health, GPX, лабораторные PDF и снимки хранятся вне публичного vault.</li>
+        <li>Локальный Obsidian vault сам по себе не шифруется. Нужны FileVault, блокировка устройства и резервная копия.</li>
+        <li>Перед отправкой в облачную модель убирайте ФИО, адреса, маршруты и лишние идентификаторы.</li>
+        <li>В ChatGPT можно отключить Improve the model for everyone. Для чувствительных разовых запросов есть Temporary Chat. <a href="https://help.openai.com/en/articles/7730893-data-usage-for-openai-models">Официальное описание Data Controls</a>.</li>
+      </ul>
+    </section>
+
+    <section id="prompt" class="prose-section prompt-section">
+      <p class="section-number">06</p>
+      <h2>Статья для человека. Промпт для агента</h2>
+
+      <p>Новый формат гайда должен читаться дважды. Первый раз вами, чтобы понимать принципы. Второй раз агентом, чтобы собрать файлы и не потерять ограничения по дороге.</p>
+
+      <p>Промпт ниже сначала ищет существующий vault, показывает план изменений и только затем создаёт структуру. Он умеет работать с пустой папкой или встроить Health в вашу систему.</p>
+
+      <div class="prompt-box">
+        <div class="prompt-toolbar">
+          <div>
+            <span>HEALTH SYSTEM PROMPT</span>
+            <small>{agentPrompt.split(/\s+/).length.toLocaleString('ru-RU')} слов</small>
+          </div>
+          <button type="button" data-copy-prompt>Скопировать промпт</button>
+        </div>
+        <pre aria-label="Промпт для агента"><code>{agentPrompt}</code></pre>
+      </div>
+
+      <textarea id="agent-prompt-source" class="visually-hidden" readonly>{agentPrompt}</textarea>
+      <p class="copy-status copy-status-bottom" aria-live="polite"></p>
+
+      <div class="prompt-after">
+        <strong>После первого запуска попросите три вещи</strong>
+        <ol>
+          <li>Создать одну тестовую тренировку.</li>
+          <li>Показать, как план превращается в факт.</li>
+          <li>Перечислить файлы, которые нельзя публиковать.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="hermes" class="prose-section hermes-section">
+      <p class="section-number">07</p>
+      <h2>Как я превратил хранилище в постоянного агента</h2>
+
+      <p>До этого места у вас уже есть работающая система. Но взаимодействовать с ней приходится вручную: открыть vault, запустить агента, передать файл, попросить обновить записи.</p>
+
+      <p>У себя я сделал следующий шаг через <a href={SITE.hermesDocs}>Hermes Agent от Nous Research</a>. Это конкретная открытая агентная платформа, а не имя, которое я придумал помощнику.</p>
+
+      <div class="wide">
+        <AgentChat />
+      </div>
+
+      <p>В Telegram у меня живёт отдельный профиль здоровья. Он полностью знает правила этой папки. Я отправляю ему результат анализа, планируемую тренировку или короткий отчёт после подходов. Агент разбирает файл, обновляет Markdown, ведёт хронологию и напоминает о перепроверках.</p>
+
+      <p>Hermes поддерживает отдельные профили, Telegram gateway, память и расписания. Поэтому health-vault перестаёт быть архивом, к которому я иногда возвращаюсь. Он становится рабочей системой с постоянным входом.</p>
+
+      <aside class="final-cta">
+        <span>СЛЕДУЮЩИЙ УРОВЕНЬ</span>
+        <h3>Хотите собрать постоянного агента поверх своей системы?</h3>
+        <p>Это уже отдельная тема. Если хотите, чтобы я разобрал настройку Hermes и провёл практический интенсив, напишите мне.</p>
+        <a href={SITE.telegramDM}>Написать в Telegram <span>↗</span></a>
+      </aside>
+    </section>
+
+    <section class="prose-section conclusion">
+      <p class="section-number">08</p>
+      <h2>Данные становятся полезными только перед решением</h2>
+
+      <p>Apple Watch и раньше записывали мои тренировки. Obsidian и раньше хранил планы. Анализы и раньше лежали в папке. По отдельности это были архивы.</p>
+
+      <p>Ценность появилась, когда всё собралось в одну петлю: план, тренировка, объективный факт, субъективное состояние, недельный пересмотр и следующий план.</p>
+
+      <p>Не нужно оцифровывать всю жизнь за вечер. Создайте одну запись, проведите одну тренировку и дайте агенту правильно обновить один файл. Хорошая система начинается не с количества данных. Она начинается с вопроса, который вы хотите решить.</p>
+
+      <div class="closing-kit">
+        <span class="closing-kit-label">ЗАБРАТЬ СИСТЕМУ</span>
+        <div class="closing-kit-head">
+          <h3>Начните с готовой структуры</h3>
+          <p>Выберите промпт для своего агента или скачайте пустой Obsidian vault.</p>
+        </div>
+        <div class="closing-actions">
+          <button class="action action-primary" type="button" data-copy-prompt>
+            <span class="action-icon" aria-hidden="true">⌘</span>
+            <span><strong>Скопировать промпт</strong><small>и собрать систему с агентом</small></span>
+          </button>
+          <a class="action" href={downloadUrl} download>
+            <span class="action-icon" aria-hidden="true">↓</span>
+            <span><strong>Скачать starter-vault</strong><small>готовая пустая структура · ZIP</small></span>
+          </a>
+        </div>
+      </div>
+      <p class="copy-status copy-status-closing" aria-live="polite"></p>
+    </section>
+
+    <script is:inline>
+      (function () {
+        var source = document.getElementById('agent-prompt-source');
+        var buttons = document.querySelectorAll('[data-copy-prompt]');
+        var statuses = document.querySelectorAll('.copy-status');
+
+        function setStatus(message) {
+          statuses.forEach(function (node) { node.textContent = message; });
+          window.setTimeout(function () {
+            statuses.forEach(function (node) { node.textContent = ''; });
+          }, 3200);
+        }
+
+        async function copyPrompt(button) {
+          if (!source) return;
+          var original = button.querySelector('strong')?.textContent || button.textContent;
+          var copied = false;
+          try {
+            await navigator.clipboard.writeText(source.value);
+            copied = true;
+          } catch (error) {
+            source.classList.remove('visually-hidden');
+            source.select();
+            try {
+              copied = document.execCommand('copy');
+            } catch (fallbackError) {
+              copied = false;
+            }
+            source.classList.add('visually-hidden');
+          }
+          if (!copied) {
+            setStatus('Браузер запретил копирование. Выделите текст в блоке промпта вручную.');
+            document.querySelector('.prompt-box')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+          if (button.querySelector('strong')) button.querySelector('strong').textContent = 'Скопировано';
+          else button.textContent = 'Скопировано';
+          setStatus('Промпт скопирован. Вставьте его в агент с доступом к вашим файлам.');
+          window.setTimeout(function () {
+            if (button.querySelector('strong')) button.querySelector('strong').textContent = original;
+            else button.textContent = original;
+          }, 2200);
+        }
+
+        buttons.forEach(function (button) {
+          button.addEventListener('click', function () { copyPrompt(button); });
+        });
+      })();
+    </script>
+  </main>
+</Base>
+
+<style>
+  .article {
+    width: min(960px, calc(100vw - 32px));
+    margin-left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 0 20px;
+  }
+  .article-hero {
+    padding: 18px 0 24px;
+  }
+  .back-link {
+    display: inline-block;
+    margin-bottom: 46px;
+    color: var(--muted);
+    font-size: .82rem;
+  }
+  .back-link:hover { color: var(--fg); }
+  .article-meta {
+    display: flex;
+    gap: 18px;
+    color: var(--muted);
+    font-size: .72rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  h1 {
+    max-width: 900px;
+    margin: 18px 0 20px;
+    font-size: clamp(2.25rem, 6vw, 4rem);
+    line-height: 1.06;
+    letter-spacing: -.035em;
+    text-wrap: balance;
+  }
+  .article-lede {
+    max-width: 760px;
+    color: var(--muted);
+    font-family: var(--serif);
+    font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+    line-height: 1.55;
+  }
+  .hero-actions,
+  .closing-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 30px;
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-width: none;
+  }
+  .hero-actions .action {
+    width: auto;
+    min-height: 48px;
+    padding: 7px 11px;
+  }
+  .hero-actions .action-icon {
+    width: 29px;
+    height: 29px;
+    border-radius: 7px;
+    font-size: .8rem;
+  }
+  .hero-actions .action small { display: none; }
+  .action {
+    appearance: none;
+    width: 100%;
+    min-height: 66px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--fg);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+  }
+  .action:hover {
+    color: var(--fg);
+    border-color: var(--accent);
+  }
+  .action-primary {
+    background: var(--fg);
+    color: var(--bg);
+    border-color: var(--fg);
+  }
+  .action-primary:hover {
+    color: var(--bg);
+    opacity: .9;
+  }
+  .action-icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid currentColor;
+    border-radius: 8px;
+    opacity: .65;
+    font-family: var(--serif);
+  }
+  .action > span:last-child { display: flex; flex-direction: column; line-height: 1.35; }
+  .action strong { font-size: .82rem; font-weight: 600; }
+  .action small { font-size: .65rem; opacity: .62; }
+  .copy-status {
+    min-height: 20px;
+    margin-top: 8px;
+    color: var(--accent);
+    font-size: .72rem;
+  }
+  .wide {
+    width: 100%;
+  }
+  .article-summary {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 16px;
+    margin: 34px 0 50px;
+    padding: 20px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .article-summary span {
+    color: var(--muted);
+    font-size: .64rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+    padding-top: 4px;
+  }
+  .article-summary p {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    line-height: 1.55;
+  }
+  .requirements {
+    margin: 0 0 54px;
+    padding: 24px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .requirements-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 20px;
+    margin-bottom: 18px;
+  }
+  .requirements-head > span {
+    color: var(--muted);
+    font-size: .62rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+  }
+  .requirements-head h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .requirements-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .requirements-grid > * {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .requirements-grid a:hover {
+    border-color: var(--accent);
+    color: var(--fg);
+  }
+  .requirement-icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--fg) 5%, transparent);
+    color: var(--accent);
+    font-family: var(--serif);
+    font-size: .75rem;
+  }
+  .requirements-grid > * > span:last-child {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+  }
+  .requirements-grid strong {
+    font-size: .75rem;
+    font-weight: 600;
+  }
+  .requirements-grid small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: .62rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .toc {
+    margin: 0 0 84px;
+    padding-left: 0;
+  }
+  .toc > span {
+    display: block;
+    margin-bottom: 13px;
+    color: var(--muted);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+  }
+  .toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; }
+  .toc li {
+    counter-increment: toc;
+    display: flex;
+    gap: 11px;
+    margin: 7px 0;
+    font-size: .88rem;
+  }
+  .toc li::before {
+    content: "0" counter(toc);
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .toc a:hover { color: var(--accent); }
+  .prose-section {
+    scroll-margin-top: 28px;
+    margin: 0 0 94px;
+  }
+  .section-number {
+    margin: 0 0 12px;
+    color: var(--muted);
+    font-family: var(--serif);
+    font-size: .9rem;
+  }
+  .prose-section h2 {
+    margin: 0 0 28px;
+    font-size: clamp(1.75rem, 4vw, 2.45rem);
+    line-height: 1.18;
+    letter-spacing: -.025em;
+    text-wrap: balance;
+  }
+  .prose-section h3 {
+    margin: 42px 0 14px;
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    font-weight: 500;
+  }
+  .prose-section > p,
+  .prose-section > ul,
+  .prose-section > ol:not(.steps) {
+    max-width: 820px;
+    font-size: 1.02rem;
+    line-height: 1.78;
+  }
+  .prose-section > p { margin: 0 0 19px; }
+  .prose-section a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    text-underline-offset: 3px;
+  }
+  blockquote {
+    margin: 38px 0;
+    padding: 4px 0 4px 24px;
+    border-left: 2px solid var(--accent);
+  }
+  blockquote p {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 1.28rem;
+    line-height: 1.55;
+  }
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 30px 0;
+  }
+  .principles article {
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .principles article > span {
+    color: var(--muted);
+    font-family: var(--serif);
+    font-size: .75rem;
+  }
+  .principles h3 { margin: 12px 0 8px; font-size: 1.1rem; }
+  .principles p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.6; }
+  .boundary,
+  .technical-note {
+    margin: 30px 0;
+    padding: 22px 24px;
+    border: 1px solid color-mix(in srgb, #b8794d 45%, var(--line));
+    border-radius: 12px;
+    background: color-mix(in srgb, #b8794d 6%, transparent);
+  }
+  .boundary strong,
+  .technical-note strong { font-size: .78rem; }
+  .boundary p,
+  .technical-note p { margin: 7px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.65; }
+  .build-levels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    margin: 32px 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--line);
+  }
+  .build-levels > div {
+    padding: 19px 17px;
+    background: var(--bg);
+  }
+  .build-levels span {
+    display: block;
+    color: var(--accent);
+    font-size: .62rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .build-levels strong { display: block; margin: 8px 0 6px; font-family: var(--serif); font-size: .98rem; font-weight: 500; }
+  .build-levels p { margin: 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+  pre {
+    margin: 20px 0 26px;
+    padding: 19px 20px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--fg) 4%, transparent);
+    overflow-x: auto;
+  }
+  pre code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .78rem;
+    line-height: 1.65;
+  }
+  .file-tree code { color: var(--accent); }
+  .inline-cta {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: center;
+    margin: 38px 0 0;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .inline-cta > div > span {
+    color: var(--muted);
+    font-size: .6rem;
+    letter-spacing: .12em;
+  }
+  .inline-cta strong { display: block; margin: 6px 0 3px; font-family: var(--serif); font-size: 1.1rem; font-weight: 500; }
+  .inline-cta p { margin: 0; color: var(--muted); font-size: .75rem; }
+  .inline-cta a {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--fg);
+    text-decoration: none;
+    white-space: nowrap;
+    font-size: .78rem;
+  }
+  .steps { list-style: none; margin: 32px 0; padding: 0; }
+  .steps li {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 18px;
+    padding: 21px 0;
+    border-top: 1px solid var(--line);
+  }
+  .steps li:last-child { border-bottom: 1px solid var(--line); }
+  .steps li > span {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    color: var(--muted);
+    font-family: var(--serif);
+  }
+  .steps strong { font-family: var(--serif); font-weight: 500; }
+  .steps p { margin: 5px 0 0; color: var(--muted); font-size: .86rem; line-height: 1.65; }
+  .steps a { color: var(--accent); }
+  .comparison {
+    margin: 22px 0 30px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .comparison-row {
+    display: grid;
+    grid-template-columns: .7fr .85fr 1.7fr;
+    border-bottom: 1px solid var(--line);
+  }
+  .comparison-row:last-child { border-bottom: 0; }
+  .comparison-row > * { padding: 12px 14px; border-right: 1px solid var(--line); font-size: .75rem; }
+  .comparison-row > *:last-child { border-right: 0; color: var(--muted); }
+  .comparison-head { background: color-mix(in srgb, var(--fg) 3%, transparent); }
+  .comparison-head > * { color: var(--muted); font-size: .62rem; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+  .lab-card {
+    margin: 28px 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .lab-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 17px;
+    border-bottom: 1px solid var(--line);
+  }
+  .lab-card-head span { color: var(--muted); font-size: .6rem; letter-spacing: .1em; }
+  .lab-card-head strong { font-size: .75rem; }
+  .lab-row {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr .8fr .8fr;
+    border-bottom: 1px solid var(--line);
+  }
+  .lab-row span { padding: 10px 13px; border-right: 1px solid var(--line); font-size: .7rem; }
+  .lab-row span:last-child { border-right: 0; }
+  .lab-header { color: var(--muted); background: color-mix(in srgb, var(--fg) 3%, transparent); }
+  .lab-header span { font-size: .6rem; text-transform: uppercase; letter-spacing: .05em; }
+  .is-ok { color: #718f73; }
+  .is-attention { color: #b8794d; }
+  .lab-card > p { margin: 0; padding: 14px 17px; color: var(--muted); font-size: .72rem; }
+  .prompt-section { max-width: none; }
+  .prompt-box {
+    margin: 28px 0;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    overflow: hidden;
+  }
+  .prompt-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 13px 15px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--fg) 3%, transparent);
+  }
+  .prompt-toolbar > div { display: flex; flex-direction: column; }
+  .prompt-toolbar span { font-size: .62rem; letter-spacing: .1em; }
+  .prompt-toolbar small { color: var(--muted); font-size: .58rem; }
+  .prompt-toolbar button {
+    padding: 8px 11px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+    font-size: .68rem;
+    cursor: pointer;
+  }
+  .prompt-toolbar button:hover { border-color: var(--accent); }
+  .prompt-box pre {
+    max-height: 440px;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--fg) 2%, transparent);
+  }
+  .prompt-box code { white-space: pre-wrap; }
+  .prompt-after {
+    margin-top: 26px;
+    padding-left: 22px;
+    border-left: 1px solid var(--line);
+  }
+  .prompt-after strong { font-family: var(--serif); font-weight: 500; }
+  .prompt-after ol { margin: 9px 0 0; padding-left: 20px; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+  .visually-hidden {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .final-cta {
+    margin: 38px 0 0;
+    padding: 30px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 90% 15%, color-mix(in srgb, #758a78 17%, transparent), transparent 34%),
+      color-mix(in srgb, var(--fg) 2%, var(--bg));
+  }
+  .final-cta > span { color: var(--muted); font-size: .62rem; letter-spacing: .12em; }
+  .final-cta h3 { max-width: 500px; margin: 10px 0; font-size: 1.45rem; }
+  .final-cta p { max-width: 530px; margin: 0 0 20px; color: var(--muted); font-size: .86rem; line-height: 1.65; }
+  .final-cta a {
+    display: inline-flex;
+    gap: 12px;
+    padding: 10px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--fg);
+    text-decoration: none;
+    font-size: .76rem;
+  }
+  .conclusion { margin-bottom: 64px; }
+  .closing-kit {
+    margin-top: 38px;
+    padding: 28px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 93% 10%, color-mix(in srgb, #758a78 17%, transparent), transparent 34%),
+      radial-gradient(circle at 4% 96%, color-mix(in srgb, #b8794d 10%, transparent), transparent 30%),
+      color-mix(in srgb, var(--fg) 2%, var(--bg));
+  }
+  .closing-kit-label {
+    color: var(--muted);
+    font-size: .6rem;
+    font-weight: 600;
+    letter-spacing: .13em;
+  }
+  .closing-kit-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 28px;
+    margin: 10px 0 22px;
+  }
+  .closing-kit-head h3 {
+    margin: 0;
+    font-size: 1.45rem;
+  }
+  .closing-kit-head p {
+    max-width: 340px;
+    margin: 0;
+    color: var(--muted);
+    font-size: .74rem;
+    line-height: 1.55;
+  }
+  .closing-actions {
+    margin-top: 0;
+  }
+  .closing-actions .action {
+    min-height: 72px;
+    background: var(--bg);
+  }
+  .closing-actions .action-primary {
+    background: var(--fg);
+  }
+  @media (max-width: 720px) {
+    .back-link { margin-bottom: 32px; }
+    .hero-actions,
+    .closing-actions { grid-template-columns: 1fr; }
+    .article-summary { grid-template-columns: 1fr; gap: 5px; }
+    .requirements-grid { grid-template-columns: repeat(2, 1fr); }
+    .principles { grid-template-columns: 1fr; }
+    .build-levels { grid-template-columns: 1fr; }
+    .inline-cta { grid-template-columns: 1fr; }
+    .closing-kit-head {
+      display: block;
+    }
+    .closing-kit-head p { margin-top: 7px; }
+    .comparison { overflow-x: auto; }
+    .comparison-row { min-width: 580px; }
+    .lab-card { overflow-x: auto; }
+    .lab-card-head,
+    .lab-row { min-width: 580px; }
+  }
+  @media (max-width: 520px) {
+    .article-meta { gap: 10px; font-size: .62rem; }
+    h1 { font-size: 2.25rem; }
+    .requirements-head {
+      display: block;
+    }
+    .requirements-head h2 { margin-top: 5px; }
+    .requirements-grid { grid-template-columns: 1fr; }
+    .prompt-toolbar { align-items: flex-start; }
+    .prompt-toolbar button { flex: 0 0 auto; }
+    .final-cta { padding: 23px 20px; }
+    .closing-kit { padding: 22px 18px; }
+  }
+</style>

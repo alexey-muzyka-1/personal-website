@@ -32,18 +32,15 @@ const books = (await getCollection('books'))
     </a>
   </section>
 
-  <section class="block">
-    <p>Параллельно веду телеграм-канал — редко, но метко. Без потока ради потока.</p>
-    <p>Кидаю туда то, что зацепило: разборы статей, интересное из продукта, находки по агентам. Если близко — подписывайся.</p>
-    <a class="card" href={SITE.telegram}>
-      <span class="card-logo card-logo-tg" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-      </span>
+  <section class="block section-major">
+    <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
+    <a class="card" href={`${base}articles/digital-health`}>
+      <div class="card-mark" aria-hidden="true">⌁</div>
       <div class="card-body">
-        <h3>Мой блог</h3>
-        <p>Телеграм-канал — редко, но метко.</p>
+        <h3>Как я оцифровал своё здоровье</h3>
+        <p>Apple Watch собирают факты, Obsidian хранит контекст, агент связывает всё в одну историю.</p>
+        <span class="go">Статья и бесплатный starter-vault →</span>
       </div>
-      <span class="card-arrow" aria-hidden="true">↗</span>
     </a>
   </section>
 
@@ -80,4 +77,36 @@ const books = (await getCollection('books'))
       </tbody>
     </table>
   </section>
+
+  <aside class="home-telegram">
+    Иногда пишу про продукты, агентов и интересные находки.
+    <a href={SITE.telegram}>Мой Telegram <span aria-hidden="true">↗</span></a>
+  </aside>
 </Base>
+
+<style>
+  .home-telegram {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .8rem;
+  }
+  .home-telegram a {
+    flex: 0 0 auto;
+    color: var(--accent);
+  }
+  .home-telegram a:hover { text-decoration: underline; }
+  @media (max-width: 600px) {
+    .home-telegram {
+      display: block;
+    }
+    .home-telegram a {
+      display: block;
+      margin-top: 7px;
+    }
+  }
+</style>

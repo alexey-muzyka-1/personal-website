@@ -3,6 +3,7 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const path = Astro.url.pathname;
 const links = [
   { href: base, label: 'Главная' },
+  { href: base + 'articles', label: 'Статьи' },
   { href: base + 'agents', label: 'Агенты' },
   { href: base + 'books', label: 'Книги' },
 ];
