@@ -1,112 +1,151 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SITE } from '../config';
-import { agents } from '../data/agents';
-import { getCollection } from 'astro:content';
+import { homeTools } from '../data/tools';
+import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const books = (await getCollection('books'))
-  .sort((a, b) => (b.data.date?.getTime() ?? 0) - (a.data.date?.getTime() ?? 0))
-  .slice(0, 6);
+
+// Канал заполняется в config.ts. Пока пусто — ведём в открытый чат
+// и не показываем счётчик, чтобы цифра не относилась не к тому месту.
+const tgHref = SITE.telegramChannel || SITE.telegram;
+const tgIsChannel = Boolean(SITE.telegramChannel);
+const tgCount = tgIsChannel && SITE.telegramSubscribers ? SITE.telegramSubscribers : 0;
+
+// Разметка для поиска: кто я и что за приложение.
+// Person — сущность сайта, SoftwareApplication — единственный публичный
+// неподделываемый пруф, который у нас есть.
+const schema = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: 'Лёша Музыка',
+    alternateName: 'Alex Muzyka',
+    url: 'https://alexeymuzyka.com',
+    image: 'https://alexeymuzyka.com/me.jpg',
+    jobTitle: 'Основатель Viralmaxing',
+    description:
+      'Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.',
+    sameAs: [SITE.github, SITE.telegram],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Viralmaxing',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'iOS, Web',
+    url: 'https://viralmaxing.com',
+    installUrl: SITE.viralmaxingAppStore,
+    author: { '@type': 'Person', name: 'Лёша Музыка' },
+  },
+];
 ---
 
-<Base>
+<Base
+  description="Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю."
+  schema={schema}
+>
   <header class="head">
     <img class="portrait" src={`${base}me.jpg`} alt="Лёша Музыка" width="110" height="110" />
     <div class="head-text">
       <h1>Лёша Музыка</h1>
-      <p class="hero-tagline">Основатель Viralmaxing. Строю AI-native компании через агентов.</p>
+      <p class="hero-tagline">
+        Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.
+      </p>
     </div>
   </header>
 
-  <section class="block">
-    <p>Главный фокус — <strong>Viralmaxing</strong>. Строю его как AI-native компанию: весь pipeline от идеи до прода держат агенты, а не раздутый штат.</p>
-    <p>Автоматизирую весь трек — поддержку, разработку, деплой, мониторинг — через агентов. Задача наглая — собрать тех-компанию, которой можно рулить <strong>одному</strong>.</p>
-    <a class="card" href={SITE.viralmaxing}>
-      <img class="card-logo" src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="52" height="52" />
-      <div class="card-body">
+  <section class="block section-major">
+    <h2 class="section-h">Инструменты <span class="all"><a href={`${base}tools`}>все →</a></span></h2>
+    <p>
+      Агенты и системы из моего рабочего контура. Ничего не собрано специально
+      для этой страницы — всё уже крутится каждый день. Забирайте, взамен ничего
+      не нужно.
+    </p>
+    <div class="grid">
+      {homeTools.map((t) => (
+        <a class="tile" href={t.href}>
+          <div class="tile-ico"><Icon name={t.icon} /></div>
+          <h3>{t.name}</h3>
+          <p>{t.what}</p>
+          <span class="go">{t.grab} →</span>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <section class="block section-major">
+    <h2 class="section-h">Продукты</h2>
+    <div class="prod-head">
+      <img src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="44" height="44" />
+      <div>
         <h3>Viralmaxing</h3>
-        <p>Находишь сильные идеи, разбираешь конкурентов и пишешь сценарии в одной системе.</p>
+        <p>Главный фокус. Две части, каждая под свою работу.</p>
       </div>
-      <span class="card-arrow" aria-hidden="true">↗</span>
-    </a>
+    </div>
+    <div class="grid">
+      <a class="tile" href={SITE.viralmaxing}>
+        <div class="tile-top"><Icon name="web" size={18} /><b>Веб</b></div>
+        <p>Вся аналитика рилсов в одном экране.</p>
+        <span class="go">viralmaxing.com →</span>
+      </a>
+      <a class="tile" href={SITE.viralmaxingAppStore}>
+        <div class="tile-top"><Icon name="iphone" size={18} /><b>iPhone</b></div>
+        <p>Быстро адаптируешь сценарий под себя и растишь свой аккаунт.</p>
+        <span class="go">App Store →</span>
+      </a>
+    </div>
   </section>
 
   <section class="block section-major">
-    <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
-    <a class="card" href={`${base}articles/digital-health`}>
-      <div class="card-mark" aria-hidden="true">⌁</div>
-      <div class="card-body">
-        <h3>Как я оцифровал своё здоровье</h3>
-        <p>Apple Watch собирают факты, Obsidian хранит контекст, агент связывает всё в одну историю.</p>
-        <span class="go">Статья и бесплатный starter-vault →</span>
+    <h2 class="section-h">Telegram</h2>
+    <div class="tg">
+      <div class="tg-text">
+        <p>
+          Пишу про продукты, агентов и находки — то, что не помещается в статью
+          и появляется раньше, чем инструмент доедет до этого сайта.
+        </p>
+        {tgCount > 0 && <p class="tg-count">{tgCount} подписчиков</p>}
       </div>
-    </a>
+      <a class="btn-open" href={tgHref}>{tgIsChannel ? 'Читать канал' : 'Зайти в чат'} ↗</a>
+    </div>
   </section>
 
-  <section class="block section-major">
-    <h2 class="section-h">Агенты <span class="all"><a href={`${base}agents`}>все →</a></span></h2>
-    <p>Кроме Viralmaxing, перестраиваю агентами и остальную жизнь — частью делюсь на GitHub.</p>
-    <table class="tbl">
-      <tbody>
-        {agents.map((a, i) => (
-          <tr>
-            <td class="num">{i + 1}</td>
-            <td class="t nowrap"><a href={a.href}>{a.name}</a></td>
-            <td class="w">{a.what}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </section>
-
-  <section class="block">
-    <h2 class="section-h">Книги <span class="all"><a href={`${base}books`}>все →</a></span></h2>
-    <p>Мой субъективный топ книг, которые в той или иной мере на меня повлияли. Можете забрать себе, можете нет.</p>
-    <p class="subnote">Список пополняется время от времени.</p>
-    <table class="tbl">
-      <thead><tr><th class="num">#</th><th>Книга</th><th>Автор</th></tr></thead>
-      <tbody>
-        {books.map((b, i) => (
-          <tr>
-            <td class="num">{i + 1}</td>
-            <td class="t">{b.data.link ? <a href={b.data.link}>{b.data.title} <span class="ext">↗</span></a> : b.data.title}</td>
-            <td class="by">{b.data.author}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </section>
-
-  <aside class="home-telegram">
-    Иногда пишу про продукты, агентов и интересные находки.
-    <a href={SITE.telegram}>Мой Telegram <span aria-hidden="true">↗</span></a>
-  </aside>
+  <p class="more-line">
+    Ещё здесь есть <a href={`${base}articles`}>статьи</a> и
+    <a href={`${base}books`}>список книг</a>, которые на меня повлияли.
+  </p>
 </Base>
 
 <style>
-  .home-telegram {
+  .tg {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 24px;
+    margin-top: 16px;
+    padding: 22px 24px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .tg-text p { margin: 0; }
+  .tg-count {
+    margin-top: 6px !important;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .tg .btn-open { flex: 0 0 auto; }
+  .more-line {
     margin-top: 48px;
     padding-top: 20px;
     border-top: 1px solid var(--line);
     color: var(--muted);
-    font-size: .8rem;
+    font-size: 0.9rem;
   }
-  .home-telegram a {
-    flex: 0 0 auto;
-    color: var(--accent);
-  }
-  .home-telegram a:hover { text-decoration: underline; }
+  .more-line a { color: var(--accent); }
+  .more-line a:hover { text-decoration: underline; }
   @media (max-width: 600px) {
-    .home-telegram {
-      display: block;
-    }
-    .home-telegram a {
-      display: block;
-      margin-top: 7px;
-    }
+    .tg { display: block; }
+    .tg .btn-open { margin-top: 16px; }
   }
 </style>

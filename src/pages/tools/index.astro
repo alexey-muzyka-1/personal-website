@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+import { tools } from '../../data/tools';
+import Icon from '../../components/Icon.astro';
+---
+
+<Base
+  title="Инструменты — Лёша Музыка"
+  description="Агенты и системы, которыми я работаю каждый день. Забирайте и пользуйтесь."
+>
+  <header class="head">
+    <div class="head-text">
+      <h1>Инструменты</h1>
+      <p class="lede">
+        Здесь то, чем я реально работаю: агенты и системы из моего рабочего контура.
+        Ничего не собрано специально для этой страницы — всё уже крутится каждый
+        день. Забирайте и пользуйтесь, регистрация и подписка не нужны.
+      </p>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="grid">
+      {tools.map((t) => (
+        <div class="tile">
+          <div class="tile-ico"><Icon name={t.icon} /></div>
+          <h3>{t.name}</h3>
+          <p>{t.what}</p>
+          <div class="inline-links">
+            <a href={t.href}>{t.grab} →</a>
+            {t.repo && <a href={t.repo}>GitHub ↗</a>}
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+</Base>
