@@ -9,12 +9,15 @@ interface Props {
   description?: string;
   image?: string;
   article?: boolean;
+  /** JSON-LD для поисковиков. Один объект или массив. */
+  schema?: Record<string, unknown> | Record<string, unknown>[];
 }
 const {
   title = 'Лёша Музыка',
-  description = 'Основатель Viralmaxing. Пишу про стартапы, системы, контент и вкус.',
+  description = 'Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.',
   image,
   article = false,
+  schema,
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : undefined;
@@ -47,6 +50,13 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
     <meta name="twitter:description" content={description} />
     {socialImage && <meta name="twitter:image" content={socialImage} />}
     {socialImage && <meta name="twitter:image:alt" content={title} />}
+    {schema && (
+      <script
+        type="application/ld+json"
+        is:inline
+        set:html={JSON.stringify(schema)}
+      />
+    )}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

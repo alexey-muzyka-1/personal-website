@@ -1,0 +1,38 @@
+---
+// Контурные иконки в том же весе, что переключатель темы в шапке (1.6).
+// Добавляешь новую — просто дописываешь ключ в paths.
+interface Props {
+  name: 'pulse' | 'doc-spark' | 'web' | 'iphone';
+  size?: number;
+}
+const { name, size = 22 } = Astro.props;
+
+const paths: Record<Props['name'], string[]> = {
+  // Пульс — starter-vault для здоровья
+  pulse: ['M2 12h4.5l2-6.5 4 13 2.2-6.5H22'],
+  // Документ с искрой — контент-агент
+  'doc-spark': [
+    'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8',
+    'M9 10h5M9 14h6M9 18h4',
+    'M18.5 2l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z',
+  ],
+  // Монитор — веб-версия
+  web: ['M2.5 4h19a0 0 0 0 1 0 0v11a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2V4z', 'M8 21h8M12 17v4'],
+  // Телефон — приложение
+  iphone: ['M7 2h10a2.5 2.5 0 0 1 2.5 2.5v15A2.5 2.5 0 0 1 17 22H7a2.5 2.5 0 0 1-2.5-2.5v-15A2.5 2.5 0 0 1 7 2z', 'M11 18.4h2'],
+};
+---
+<svg
+  class="icon"
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.6"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  {paths[name].map((d) => <path d={d} />)}
+</svg>

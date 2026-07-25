@@ -3,8 +3,8 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const path = Astro.url.pathname;
 const links = [
   { href: base, label: 'Главная' },
+  { href: base + 'tools', label: 'Инструменты' },
   { href: base + 'articles', label: 'Статьи' },
-  { href: base + 'agents', label: 'Агенты' },
   { href: base + 'books', label: 'Книги' },
 ];
 const strip = (s) => s.replace(/\/+$/, '');
@@ -21,7 +21,11 @@ function active(href) {
   <div class="nav-right">
     <div class="links">
       {links.map((l) => (
-        <a href={l.href} aria-current={active(l.href) ? 'page' : undefined}>{l.label}</a>
+        <a
+          href={l.href}
+          class={l.href === base ? 'link-home' : undefined}
+          aria-current={active(l.href) ? 'page' : undefined}
+        >{l.label}</a>
       ))}
     </div>
     <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Сменить тему">

@@ -53,14 +53,44 @@ p { margin: 0 0 0.9rem; }
 a { color: inherit; text-decoration: none; }
 a:hover { color: var(--accent); }
 
+/* ---- плитка: инструменты и платформы продукта ----
+   auto-fit + minmax: один элемент занимает всю ширину, два встают в ряд,
+   три и дальше переносятся сами. Не надо чинить сетку при каждом пополнении. */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 4px; }
+.tile { border: 1px solid var(--line); border-radius: 14px; padding: 22px; color: inherit; display: block; }
+.tile:hover { color: inherit; border-color: var(--accent); }
+.tile-ico {
+  width: 44px; height: 44px; border-radius: 11px; margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--accent);
+}
+.tile h3 { font-size: 1.1rem; margin: 0 0 6px; }
+.tile p { color: var(--muted); font-size: 0.94rem; margin: 0 0 12px; }
+.tile .go { font-size: 0.92rem; color: var(--accent); }
+
+/* Шапка продукта: логотип + название строкой, платформы плитками под ней. */
+.prod-head { display: flex; gap: 16px; align-items: center; margin: 18px 0; }
+.prod-head img { width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0; }
+.prod-head h3 { font-size: 1.2rem; margin: 0; }
+.prod-head p { margin: 2px 0 0; color: var(--muted); font-size: 0.94rem; }
+.tile-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--accent); }
+.tile-top b { font-family: var(--serif); font-size: 1.02rem; font-weight: 500; color: var(--fg); }
+
 /* ---- nav ---- */
-.nav { display: flex; justify-content: space-between; align-items: center; padding: 28px 0 36px; }
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 28px 0 36px; }
 .nav .brand { font-family: var(--serif); font-weight: 500; font-size: 1rem; }
 .nav .links { display: flex; gap: 20px; font-size: 0.88rem; }
 .nav .links a { color: var(--muted); }
 .nav .links a:hover { color: var(--fg); }
 .nav .links a[aria-current="page"] { color: var(--fg); }
 .nav-right { display: flex; align-items: center; gap: 18px; }
+/* На узком экране «Главная» дублирует логотип-ссылку слева — убираем, чтобы
+   пункты меню не наезжали на бренд. */
+@media (max-width: 600px) {
+  .nav { gap: 10px; }
+  .nav .links { gap: 14px; font-size: 0.84rem; }
+  .nav .links .link-home { display: none; }
+}
 .theme-toggle { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 4px; display: inline-flex; line-height: 0; }
 .theme-toggle:hover { color: var(--fg); }
 .theme-toggle svg { width: 18px; height: 18px; }
