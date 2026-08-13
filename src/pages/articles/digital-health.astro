@@ -432,6 +432,12 @@ pain_level: 0
         </div>
       </div>
       <p class="copy-status copy-status-closing" aria-live="polite"></p>
+
+      <p class="next-read">
+        Ещё один разбор в том же жанре, но про работу:
+        <a href={`${base}articles/blueprint-50m`}>как мы разогнали аккаунты до 50 млн
+        просмотров в месяц</a>. Тоже система целиком, со скриншотами и цифрами.
+      </p>
     </section>
 
     <script is:inline>
@@ -1012,6 +1018,14 @@ pain_level: 0
     font-size: .76rem;
   }
   .conclusion { margin-bottom: 64px; }
+  .next-read {
+    margin: 34px 0 0;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: .9rem;
+  }
+  .next-read a { color: var(--accent); }
   .closing-kit {
     margin-top: 38px;
     padding: 28px;

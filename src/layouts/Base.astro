@@ -67,6 +67,32 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
       <>
         <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${SITE.gaId}`}></script>
         <script is:inline set:html={`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${SITE.gaId}');`}></script>
+        {/* Уходы наружу — единственное действие, ради которого существует сайт:
+            телеграм, Viralmaxing, App Store. Без этого события нельзя понять,
+            какая статья приносит подписки, и следующая пишется вслепую. */}
+        <script is:inline>
+          document.addEventListener(
+            'click',
+            function (e) {
+              var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+              if (!a || typeof gtag !== 'function') return;
+              var host;
+              try {
+                host = new URL(a.href, location.href).hostname;
+              } catch (err) {
+                return;
+              }
+              if (!/(^|\.)(t\.me|viralmaxing\.com|apps\.apple\.com)$/i.test(host)) return;
+              gtag('event', 'outbound_click', {
+                link_domain: host,
+                link_url: a.href,
+                page_path: location.pathname,
+                link_text: (a.textContent || '').trim().slice(0, 80),
+              });
+            },
+            true
+          );
+        </script>
       </>
     )}
   </head>
