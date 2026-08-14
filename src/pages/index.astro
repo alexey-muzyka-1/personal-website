@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { SITE } from '../config';
 import { homeTools } from '../data/tools';
+import { featuredArticle } from '../data/articles';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -56,23 +57,51 @@ const schema = [
   </header>
 
   <section class="block section-major">
-    <h2 class="section-h">Инструменты <span class="all"><a href={`${base}tools`}>все →</a></span></h2>
+    <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
     <p>
-      Агенты и системы из моего рабочего контура. Ничего не собрано специально
-      для этой страницы — всё уже крутится каждый день. Забирайте, взамен ничего
-      не нужно.
+      Большие разборы систем, которые я сначала собираю для себя, а потом
+      выкладываю целиком.
     </p>
-    <div class="grid">
-      {homeTools.map((t) => (
-        <a class="tile" href={t.href}>
-          <div class="tile-ico"><Icon name={t.icon} /></div>
-          <h3>{t.name}</h3>
-          <p>{t.what}</p>
-          <span class="go">{t.grab} →</span>
-        </a>
-      ))}
-    </div>
+    <a class="feature" href={featuredArticle.href}>
+      {featuredArticle.thumb && (
+        <img
+          class="feature-thumb"
+          src={featuredArticle.thumb}
+          alt={featuredArticle.thumbAlt}
+          width="360"
+          height="328"
+          loading="lazy"
+        />
+      )}
+      <div>
+        <h3>{featuredArticle.title}</h3>
+        <p>{featuredArticle.what}</p>
+        {featuredArticle.stat && <p class="feature-stat">{featuredArticle.stat}</p>}
+        <span class="go">Читать →</span>
+      </div>
+    </a>
   </section>
+
+  {homeTools.length > 0 && (
+    <section class="block section-major">
+      <h2 class="section-h">Инструменты <span class="all"><a href={`${base}tools`}>все →</a></span></h2>
+      <p>
+        Агенты и системы из моего рабочего контура. Ничего не собрано специально
+        для этой страницы — всё уже крутится каждый день. Забирайте, взамен ничего
+        не нужно.
+      </p>
+      <div class="grid">
+        {homeTools.map((t) => (
+          <a class="tile" href={t.href}>
+            <div class="tile-ico"><Icon name={t.icon} /></div>
+            <h3>{t.name}</h3>
+            <p>{t.what}</p>
+            <span class="go">{t.grab} →</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
 
   <section class="block section-major">
     <h2 class="section-h">Продукты</h2>
@@ -118,6 +147,42 @@ const schema = [
 </Base>
 
 <style>
+  /* Витрина одной статьи: шире плитки инструментов, потому что это
+     главный материал, а не пункт списка. */
+  .feature {
+    display: grid;
+    grid-template-columns: 132px 1fr;
+    gap: 22px;
+    align-items: start;
+    margin-top: 4px;
+    padding: 26px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: inherit;
+  }
+  .feature-thumb {
+    width: 132px;
+    height: auto;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .feature:hover { color: inherit; border-color: var(--accent); }
+  .feature:hover h3 { color: var(--accent); }
+  .feature h3 {
+    margin: 0 0 10px;
+    font-size: 1.45rem;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .feature p { margin: 0 0 14px; color: var(--muted); }
+  .feature-stat {
+    margin: 0 0 16px !important;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .feature .go { font-size: 0.92rem; color: var(--accent); }
   .tg {
     display: flex;
     align-items: center;
@@ -145,6 +210,8 @@ const schema = [
   .more-line a { color: var(--accent); }
   .more-line a:hover { text-decoration: underline; }
   @media (max-width: 600px) {
+    .feature { grid-template-columns: 1fr; gap: 16px; }
+    .feature-thumb { width: 100%; }
     .tg { display: block; }
     .tg .btn-open { margin-top: 16px; }
   }

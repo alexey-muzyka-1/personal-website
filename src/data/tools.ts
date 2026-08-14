@@ -21,6 +21,7 @@ export const tools = [
     grab: 'Забрать vault',
     href: `${base}articles/digital-health`,
     icon: 'pulse' as const,
+    home: false,
   },
   {
     name: 'Контент-агент',
