@@ -1,0 +1,16 @@
+---
+// Таблица на три колонки. cols задаёт пропорции через CSS-переменную.
+interface Props { head: string[]; rows: string[][]; cols?: string; label?: string }
+const { head, rows, cols, label = 'Таблица' } = Astro.props;
+---
+
+<div class="comparison" role="table" aria-label={label} style={cols ? `--cols: ${cols}` : undefined}>
+  <div class="comparison-row comparison-head" role="row">
+    {head.map((h) => <span role="columnheader">{h}</span>)}
+  </div>
+  {rows.map((r) => (
+    <div class="comparison-row" role="row">
+      {r.map((c) => <span role="cell" set:html={c} />)}
+    </div>
+  ))}
+</div>

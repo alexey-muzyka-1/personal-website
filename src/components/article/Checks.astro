@@ -1,0 +1,17 @@
+---
+// Чеклисты в две колонки.
+interface List { title: string; items: string[] }
+interface Props { lists: List[] }
+const { lists } = Astro.props;
+---
+
+<div class="checks">
+  {lists.map((l) => (
+    <article>
+      <h3>{l.title}</h3>
+      <ul>
+        {l.items.map((i) => <li><span set:html={i} /></li>)}
+      </ul>
+    </article>
+  ))}
+</div>

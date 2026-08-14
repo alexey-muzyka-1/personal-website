@@ -1,0 +1,18 @@
+---
+// Нумерованные шаги. Кружок с номером слева, заголовок и пояснение справа.
+interface Step { title: string; text?: string }
+interface Props { items: Step[] }
+const { items } = Astro.props;
+---
+
+<ol class="steps">
+  {items.map((s, i) => (
+    <li>
+      <span>{i + 1}</span>
+      <div>
+        <strong>{s.title}</strong>
+        {s.text && <p set:html={s.text} />}
+      </div>
+    </li>
+  ))}
+</ol>

@@ -1,0 +1,10 @@
+---
+// Врезка с рыжей рамкой: правило, предупреждение, техническая деталь.
+interface Props { title: string }
+const { title } = Astro.props;
+---
+
+<aside class="callout">
+  <strong>{title}</strong>
+  <p><slot /></p>
+</aside>

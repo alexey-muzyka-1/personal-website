@@ -1,0 +1,14 @@
+---
+// Призыв внутри текста: слева смысл, справа кнопка.
+interface Props { label: string; title: string; text: string; href: string; action: string }
+const { label, title, text, href, action } = Astro.props;
+---
+
+<div class="inline-cta">
+  <div>
+    <span>{label}</span>
+    <strong>{title}</strong>
+    <p>{text}</p>
+  </div>
+  <a href={href}>{action}</a>
+</div>

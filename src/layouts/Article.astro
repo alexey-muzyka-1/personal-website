@@ -1,0 +1,154 @@
+---
+import Base from './Base.astro';
+import { SITE } from '../config';
+import '../styles/article.css';
+
+// Обёртка статьи: шапка, полоса цифр, «коротко», оглавление и финальный
+// блок с призывами. Внутрь статья кладёт только свои секции.
+//
+// Стили живут в src/styles/article.css и общие для всех статей: правка
+// отступа там меняет сразу все разборы.
+interface Metric { value: string; label: string }
+interface TocItem { href: string; label: string }
+
+interface Props {
+  title: string;
+  description: string;
+  kicker?: string;
+  date: string;
+  dateLabel: string;
+  lede: string;
+  image?: string;
+  schema?: Record<string, unknown> | Record<string, unknown>[];
+  vmCampaign: string;
+  vmNote?: string;
+  metrics?: Metric[];
+  metricsNote?: string;
+  summary?: string;
+  toc?: TocItem[];
+  tocTitle?: string;
+  /** Куда ведём читателя в первую очередь: в канал или в продукт. */
+  cta?: 'telegram' | 'product';
+  ctaTitle?: string;
+  ctaText?: string;
+  ctaAction?: string;
+}
+
+const {
+  title,
+  description,
+  kicker = 'Разбор',
+  date,
+  dateLabel,
+  lede,
+  image,
+  schema,
+  vmCampaign,
+  vmNote = 'аналитика, о которой ниже',
+  metrics = [],
+  metricsNote,
+  summary,
+  toc = [],
+  tocTitle = 'В этой статье',
+  cta = 'telegram',
+  ctaTitle,
+  ctaText,
+  ctaAction,
+} = Astro.props;
+
+const toProduct = cta === 'product';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+// Главный выход статьи это телеграм. Viralmaxing идёт внутри текста как
+// рабочий инструмент, кампания в UTM разная у каждой статьи.
+const tg = SITE.telegramChannel || SITE.telegram;
+const vm = `https://viralmaxing.com/?utm_source=lesha-site&utm_medium=referral&utm_campaign=${vmCampaign}`;
+const cofounder = 'https://t.me/drozdilya_neuro';
+---
+
+<Base title={title} description={description} image={image} schema={schema} article>
+  <main class="article">
+    <header class="article-hero">
+      <a class="back-link" href={`${base}articles`}>← Все статьи</a>
+      <div class="article-meta">
+        <time datetime={date}>{dateLabel}</time>
+        <span>{kicker}</span>
+      </div>
+      <h1>{title}</h1>
+      <p class="article-lede">{lede}</p>
+      <div class="hero-actions">
+        <a class={toProduct ? 'action' : 'action action-primary'} href={tg}>
+          <span class="action-icon" aria-hidden="true">↗</span>
+          <span><strong>Читать телеграм</strong><small>разборы приходят туда раньше</small></span>
+        </a>
+        <a class={toProduct ? 'action action-primary' : 'action'} href={vm}>
+          <span class="action-icon" aria-hidden="true">◫</span>
+          <span><strong>Открыть Viralmaxing</strong><small>{vmNote}</small></span>
+        </a>
+      </div>
+    </header>
+
+    {metrics.length > 0 && (
+      <section class="metrics" aria-label="Ключевые цифры">
+        {metrics.map((m) => (
+          <div>
+            <strong>{m.value}</strong>
+            <span>{m.label}</span>
+          </div>
+        ))}
+        {metricsNote && <p>{metricsNote}</p>}
+      </section>
+    )}
+
+    {summary && (
+      <aside class="article-summary" aria-label="Коротко">
+        <span>КОРОТКО</span>
+        <p>{summary}</p>
+      </aside>
+    )}
+
+    <slot name="intro" />
+
+    {toc.length > 0 && (
+      <nav class="toc" aria-label="Содержание">
+        <span>{tocTitle}</span>
+        <ol>
+          {toc.map((t) => (
+            <li><a href={t.href}>{t.label}</a></li>
+          ))}
+        </ol>
+      </nav>
+    )}
+
+    <slot />
+
+    <section class="prose-section conclusion">
+      <slot name="outro" />
+
+      <aside class="final-cta">
+        <span>ДАЛЬШЕ</span>
+        <h3>{ctaTitle ?? (toProduct
+          ? 'Соберите свою доску и сетку в Viralmaxing'
+          : 'Такие разборы приходят в телеграм раньше, чем сюда')}</h3>
+        <p>{ctaText ?? (toProduct
+          ? 'Аккаунты, конкуренты, разборы роликов и контент-план в одном месте. MCP для Claude входит.'
+          : 'Пишем про продукты, агентов и находки, которые не помещаются в статью.')}</p>
+        <a href={toProduct ? vm : tg}>{ctaAction ?? (toProduct ? 'Открыть Viralmaxing ↗' : 'Читать телеграм ↗')}</a>
+      </aside>
+
+      {toProduct && (
+        <p class="note">
+          Разборы и находки я выкладываю в <a href={tg}>телеграме</a>, а личка открыта для
+          вопросов: <a href={SITE.telegramDM}>@Lesha_Muzyka</a>.
+        </p>
+      )}
+
+      <p class="note">
+        Если знаете крупные проекты в health &amp; fitness в США, бады или мобильные
+        приложения, буду рад познакомиться. С меня 100 000 ₽, если начнём работу. Писать
+        сюда: <a href={cofounder}>@drozdilya_neuro</a>.
+      </p>
+    </section>
+  </main>
+</Base>

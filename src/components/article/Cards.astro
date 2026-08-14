@@ -1,0 +1,16 @@
+---
+// Карточки в две колонки. variant="cases" подсвечивает числа внутри текста.
+interface Card { label?: string; title: string; text: string }
+interface Props { items: Card[]; variant?: 'default' | 'cases' }
+const { items, variant = 'default' } = Astro.props;
+---
+
+<div class={variant === 'cases' ? 'cards is-cases' : 'cards'}>
+  {items.map((c, i) => (
+    <article>
+      <span>{c.label ?? String(i + 1).padStart(2, '0')}</span>
+      <h3>{c.title}</h3>
+      <p set:html={c.text} />
+    </article>
+  ))}
+</div>
