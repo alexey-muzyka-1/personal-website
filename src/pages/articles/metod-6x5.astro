@@ -87,7 +87,7 @@ const commands = `Покажи мои аккаунты и средние про�
     { href: '#claude', label: 'Повторить то же самое в чате с Claude' },
   ]}
 >
-  <section slot="intro" class="prose-section intro">
+  <section slot="intro" class="prose-section intro" data-depth="вступление">
     <p>
       Утро съёмочного дня выглядит одинаково у всех, кто ведёт аккаунт сам. Камера готова,
       свет поставлен, а в голове пусто. Дальше человек полчаса листает ленту, находит
@@ -115,7 +115,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </p>
   </section>
 
-  <section id="board" class="prose-section">
+  <section id="board" class="prose-section" data-depth="board">
     <p class="section-number">01</p>
     <h2>Собрать доску конкурентов</h2>
 
@@ -180,7 +180,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </figure>
   </section>
 
-  <section id="topics" class="prose-section">
+  <section id="topics" class="prose-section" data-depth="topics">
     <p class="section-number">02</p>
     <h2>Найти шесть тем</h2>
 
@@ -248,7 +248,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </p>
   </section>
 
-  <section id="formats" class="prose-section">
+  <section id="formats" class="prose-section" data-depth="formats">
     <p class="section-number">03</p>
     <h2>Вытащить пять форматов</h2>
 
@@ -296,7 +296,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </p>
   </section>
 
-  <section id="grid" class="prose-section">
+  <section id="grid" class="prose-section" data-depth="grid">
     <p class="section-number">04</p>
     <h2>Собрать сетку</h2>
 
@@ -333,7 +333,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </Callout>
   </section>
 
-  <section id="plan" class="prose-section">
+  <section id="plan" class="prose-section" data-depth="plan">
     <p class="section-number">05</p>
     <h2>Сложить в контент-план</h2>
 
@@ -372,7 +372,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </p>
   </section>
 
-  <section id="claude" class="prose-section">
+  <section id="claude" class="prose-section" data-depth="claude">
     <p class="section-number">06</p>
     <h2>Повторить то же самое в чате с Claude</h2>
 
@@ -423,7 +423,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </p>
   </section>
 
-  <section class="prose-section">
+  <section class="prose-section" data-depth="итоги">
     <h2>Что происходит дальше каждый день</h2>
 
     <p>Сетка снимает вопрос «что снимать», но не отменяет наблюдения.</p>
@@ -487,7 +487,7 @@ const commands = `Покажи мои аккаунты и средние про�
     </figure>
   </section>
 
-  <section class="prose-section">
+  <section class="prose-section" data-depth="итоги">
     <h2>Пять ошибок, на которых это ломается</h2>
 
     <Checks

@@ -4,7 +4,7 @@ interface Props { label: string; title: string; text: string; href: string; acti
 const { label, title, text, href, action } = Astro.props;
 ---
 
-<div class="inline-cta">
+<div class="inline-cta" data-cta="inline">
   <div>
     <span>{label}</span>
     <strong>{title}</strong>

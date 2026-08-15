@@ -77,7 +77,7 @@ const cofounder = 'https://t.me/drozdilya_neuro';
       </div>
       <h1>{title}</h1>
       <p class="article-lede">{lede}</p>
-      <div class="hero-actions">
+      <div class="hero-actions" data-cta="hero">
         <a class={toProduct ? 'action' : 'action action-primary'} href={tg}>
           <span class="action-icon" aria-hidden="true">↗</span>
           <span><strong>Читать телеграм</strong><small>разборы приходят туда раньше</small></span>
@@ -102,7 +102,7 @@ const cofounder = 'https://t.me/drozdilya_neuro';
     )}
 
     {summary && (
-      <aside class="article-summary" aria-label="Коротко">
+      <aside class="article-summary" data-depth="коротко" aria-label="Коротко">
         <span>КОРОТКО</span>
         <p>{summary}</p>
       </aside>
@@ -126,7 +126,7 @@ const cofounder = 'https://t.me/drozdilya_neuro';
     <section class="prose-section conclusion">
       <slot name="outro" />
 
-      <aside class="final-cta">
+      <aside class="final-cta" data-cta="final" data-depth="финальный блок">
         <span>ДАЛЬШЕ</span>
         <h3>{ctaTitle ?? (toProduct
           ? 'Соберите свою доску и сетку в Viralmaxing'

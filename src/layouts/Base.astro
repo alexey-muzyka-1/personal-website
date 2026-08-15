@@ -83,15 +83,68 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
                 return;
               }
               if (!/(^|\.)(t\.me|viralmaxing\.com|apps\.apple\.com)$/i.test(host)) return;
+              var place = a.closest('[data-cta]');
               gtag('event', 'outbound_click', {
                 link_domain: host,
                 link_url: a.href,
                 page_path: location.pathname,
+                cta_place: place ? place.getAttribute('data-cta') : 'text',
                 link_text: (a.textContent || '').trim().slice(0, 80),
               });
             },
             true
           );
+        </script>
+
+        {/* Глубина чтения. Каждая секция статьи отправляет событие один раз,
+            когда доезжает до середины экрана: видно, на каком шаге люди
+            закрывают страницу и сколько вообще доходит до финального блока. */}
+        <script is:inline>
+          document.addEventListener('DOMContentLoaded', function () {
+            if (typeof gtag !== 'function' || !('IntersectionObserver' in window)) return;
+            var blocks = [].slice.call(document.querySelectorAll('.article [data-depth]'));
+            if (!blocks.length) return;
+            var total = blocks.length;
+            var start = Date.now();
+            var seen = {};
+            var io = new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  if (!en.isIntersecting) return;
+                  var el = en.target;
+                  var name = el.getAttribute('data-depth');
+                  if (seen[name]) return;
+                  seen[name] = 1;
+                  var idx = blocks.indexOf(el) + 1;
+                  gtag('event', 'read_depth', {
+                    page_path: location.pathname,
+                    section: name,
+                    step: idx,
+                    percent: Math.round((idx / total) * 100),
+                    seconds: Math.round((Date.now() - start) / 1000),
+                  });
+                  io.unobserve(el);
+                });
+              },
+              { rootMargin: '0px 0px -50% 0px' }
+            );
+            blocks.forEach(function (b) {
+              io.observe(b);
+            });
+          });
+        </script>
+
+        {/* Копирование блока с командами: сигнал, что человек забрал материал. */}
+        <script is:inline>
+          document.addEventListener('copy', function () {
+            if (typeof gtag !== 'function') return;
+            var sel = document.getSelection();
+            if (!sel || !sel.rangeCount) return;
+            var node = sel.getRangeAt(0).commonAncestorContainer;
+            var el = node.nodeType === 1 ? node : node.parentElement;
+            if (!el || !el.closest('.article pre')) return;
+            gtag('event', 'copy_snippet', { page_path: location.pathname });
+          });
         </script>
       </>
     )}
