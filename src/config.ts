@@ -3,7 +3,6 @@
 export const SITE = {
   telegram: 'https://t.me/+4XwhB8jbNFJhMmUy', // открытый чат
   telegramDM: 'https://t.me/Lesha_Muzyka', // личка для консультаций
-  github: 'https://github.com/alexey-muzyka-1',
   hermesAgent: 'https://github.com/alexey-muzyka-1/hermes-content-agent', // open-source контент-агент
   hermesDocs: 'https://hermes-agent.nousresearch.com/docs/',
 
