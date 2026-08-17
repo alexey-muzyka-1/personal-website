@@ -104,6 +104,16 @@ const schema = [
   )}
 
   <section class="block section-major">
+    <h2 class="section-h">Мантра</h2>
+    <a class="mantra-card" href={`${base}mantra`}>
+      <span class="mantra-quote">
+        Никто не придёт тебя спасать. И никто не придёт тебя останавливать.
+      </span>
+      <span class="go">Читать целиком →</span>
+    </a>
+  </section>
+
+  <section class="block section-major">
     <h2 class="section-h">Продукты</h2>
     <div class="prod-head">
       <img src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="44" height="44" />
@@ -183,6 +193,29 @@ const schema = [
     font-variant-numeric: tabular-nums;
   }
   .feature .go { font-size: 0.92rem; color: var(--accent); }
+
+  /* Мантра: единственный блок на главной, который показывает сам текст,
+     а не описание. Пересказывать первую строку нечем. */
+  .mantra-card {
+    display: block;
+    margin-top: 4px;
+    padding: 26px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: inherit;
+  }
+  .mantra-card:hover { color: inherit; border-color: var(--accent); }
+  .mantra-card:hover .mantra-quote { color: var(--accent); }
+  .mantra-quote {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    line-height: 1.35;
+    margin-bottom: 14px;
+    text-wrap: balance;
+  }
+  .mantra-card .go { font-size: 0.92rem; color: var(--accent); }
+
   .tg {
     display: flex;
     align-items: center;

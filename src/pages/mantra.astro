@@ -1,0 +1,194 @@
+---
+import Base from '../layouts/Base.astro';
+import { MANTRA_TITLE, MANTRA_TEXT } from '../data/mantra';
+
+// Абзацы = блоки, разделённые пустой строкой. Внутри блока переносы строк
+// значимые: они держат ритм, поэтому остаются как <br>.
+const blocks = MANTRA_TEXT.split(/\n{2,}/).map((raw) => {
+  const text = raw.trim();
+  return {
+    lines: text.split('\n'),
+    // Абзац целиком капсом — это удар, а не абзац. Показываем крупнее.
+    shout: text === text.toUpperCase() && /[А-ЯЁA-Z]/.test(text),
+  };
+});
+
+// Описание — первая строка самой мантры. Своими словами пересказывать нечего.
+const description = 'Никто не придёт тебя спасать. И никто не придёт тебя останавливать.';
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'CreativeWork',
+  name: MANTRA_TITLE,
+  headline: MANTRA_TITLE,
+  description,
+  inLanguage: 'ru',
+  url: 'https://alexeymuzyka.com/mantra/',
+  author: { '@type': 'Person', name: 'Лёша Музыка', url: 'https://alexeymuzyka.com' },
+  isAccessibleForFree: true,
+};
+---
+
+<Base
+  title={`${MANTRA_TITLE} — Лёша Музыка`}
+  description={description}
+  image="/mantra/og.png"
+  schema={schema}
+  article
+>
+  <main class="mantra">
+    <header class="mantra-hero">
+      <h1>{MANTRA_TITLE}</h1>
+      <div class="mantra-actions" data-cta="hero">
+        <button class="btn-open" type="button" data-mantra-copy>Скопировать</button>
+        <button class="btn-open" type="button" data-mantra-share>Поделиться</button>
+      </div>
+    </header>
+
+    <div class="mantra-body">
+      {blocks.map((b) => (
+        <p class={b.shout ? 'm-shout' : undefined}>
+          {b.lines.map((line, i) => (
+            <>
+              {i > 0 && <br />}
+              {line}
+            </>
+          ))}
+        </p>
+      ))}
+    </div>
+
+    <footer class="mantra-end">
+      <div class="mantra-actions" data-cta="end">
+        <button class="btn-open" type="button" data-mantra-copy>Скопировать</button>
+        <button class="btn-open" type="button" data-mantra-share>Поделиться</button>
+      </div>
+    </footer>
+  </main>
+
+  {/* Один источник текста на страницу: кнопка копирует ровно то, что отрисовано выше. */}
+  <script id="mantra-source" type="application/json" is:inline set:html={JSON.stringify(MANTRA_TEXT)} />
+
+  <script is:inline>
+    (function () {
+      var src = document.getElementById('mantra-source');
+      var text = src ? JSON.parse(src.textContent) : '';
+      var title = document.title.split(' — ')[0];
+
+      function flash(btn, label) {
+        var was = btn.textContent;
+        btn.textContent = label;
+        btn.disabled = true;
+        setTimeout(function () {
+          btn.textContent = was;
+          btn.disabled = false;
+        }, 1800);
+      }
+
+      function track(name, params) {
+        if (typeof gtag === 'function') gtag('event', name, params);
+      }
+
+      // Буфер обмена недоступен на http и в части встроенных браузеров —
+      // поэтому всегда есть запасной путь через скрытое поле.
+      function copy(value) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(value);
+        return new Promise(function (resolve, reject) {
+          var ta = document.createElement('textarea');
+          ta.value = value;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand('copy') ? resolve() : reject();
+          } catch (e) {
+            reject(e);
+          }
+          document.body.removeChild(ta);
+        });
+      }
+
+      document.querySelectorAll('[data-mantra-copy]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          copy(text).then(
+            function () {
+              flash(btn, 'Скопировано');
+              track('mantra_copy', { place: btn.closest('[data-cta]').getAttribute('data-cta') });
+            },
+            function () {
+              flash(btn, 'Не получилось');
+            }
+          );
+        });
+      });
+
+      document.querySelectorAll('[data-mantra-share]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var place = btn.closest('[data-cta]').getAttribute('data-cta');
+          var url = location.href.split('#')[0];
+
+          // Делимся адресом, а не текстом: получатель попадает на страницу,
+          // где может так же скопировать и передать дальше. Текст в мессенджере
+          // дальше не уезжает.
+          if (navigator.share) {
+            navigator
+              .share({ title: title, url: url })
+              .then(function () {
+                track('mantra_share', { place: place, method: 'native' });
+              })
+              .catch(function () {});
+            return;
+          }
+          copy(url).then(function () {
+            flash(btn, 'Ссылка скопирована');
+            track('mantra_share', { place: place, method: 'copy_link' });
+          });
+        });
+      });
+    })();
+  </script>
+</Base>
+
+<style>
+  .mantra { padding-bottom: 24px; }
+
+  .mantra-hero { padding: 8px 0 0; }
+  .mantra-hero h1 {
+    font-size: clamp(1.9rem, 6vw, 2.5rem);
+    line-height: 1.15;
+    margin: 0;
+    max-width: 15ch;
+  }
+  .mantra-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0 0; }
+  .mantra-actions .btn-open { background: none; font-family: inherit; cursor: pointer; }
+  .mantra-actions .btn-open:disabled { cursor: default; color: var(--muted); border-color: var(--line); }
+
+  /* Читать это надо медленно, поэтому колонка уже основной и воздуха больше. */
+  .mantra-body {
+    border-top: 1px solid var(--line);
+    margin-top: 40px;
+    padding-top: 36px;
+    max-width: 34rem;
+    font-family: var(--serif);
+    font-size: 1.09rem;
+    line-height: 1.75;
+  }
+  .mantra-body p { margin: 0 0 1.5rem; }
+
+  .m-shout {
+    font-size: 1.22rem;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    margin: 2.4rem 0 2.4rem;
+  }
+  .mantra-body > .m-shout:first-child { margin-top: 0; }
+
+  .mantra-end { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 28px; }
+
+  @media (max-width: 600px) {
+    .mantra-body { font-size: 1.05rem; padding-top: 30px; margin-top: 32px; }
+    .m-shout { font-size: 1.14rem; }
+  }
+</style>
