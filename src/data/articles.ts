@@ -5,6 +5,9 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 //
 // stat — короткая цифра результата для карточки на главной. Есть только у той
 // статьи, где результат измерим. Без неё карточка просто не покажет строку.
+//
+// pinned — статья, которую держим наверху /articles независимо от даты.
+// Это ручной выбор: что читать первым тому, кто пришёл впервые.
 export const articles = [
   {
     title: 'Метод 6 × 5: тридцать роликов за тридцать минут',
@@ -13,6 +16,7 @@ export const articles = [
     dateLabel: '14.08.2026',
     href: `${base}articles/metod-6x5`,
     stat: '6 тем · 5 форматов · 30 сценариев',
+    pinned: true,
   },
   {
     title: 'Как мы разогнали аккаунты до 50 млн просмотров в месяц',
@@ -39,3 +43,8 @@ export const articles = [
 
 // На главной показываем одну статью: помеченную featured, иначе самую свежую.
 export const featuredArticle = articles.find((a) => a.featured) ?? articles[0];
+
+// Закреплённые идут отдельным блоком наверху /articles, из общего списка их
+// убираем: в списке из трёх статей дубль сразу читается как ошибка.
+export const pinnedArticles = articles.filter((a) => a.pinned);
+export const restArticles = articles.filter((a) => !a.pinned);
