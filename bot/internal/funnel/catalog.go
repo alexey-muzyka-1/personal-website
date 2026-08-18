@@ -1,0 +1,168 @@
+package funnel
+
+import (
+	"errors"
+	"fmt"
+	"maps"
+)
+
+var ErrUnknownMaterial = errors.New("unknown material")
+
+// Идентификаторы материалов совпадают с последним сегментом URL статьи на
+// сайте — по ним же события ищутся в аналитике.
+const (
+	MaterialMethod6x5   = "metod-6x5"
+	MaterialBlueprint50 = "blueprint-50m"
+)
+
+// Material — материал, который бот реально может отдать сегодня.
+//
+// Каталог намеренно маленький: в тикете 01 бот не витрина, а один
+// рекомендованный следующий шаг. Ни урока, ни анализа Reel здесь нет —
+// их пока не существует, и обещать их нельзя.
+type Material struct {
+	ID string
+	// Title и Path приходят с сайта, из src/data/articles.ts.
+	// Расхождение ловит TestCatalogMatchesSite.
+	Title string
+	Path  string
+	// Pitch — одна строка о том, что человек получит. Это копирайтинг бота,
+	// а не описание статьи с сайта: в чате нужна другая длина.
+	Pitch string
+	// Button — подпись кнопки. Глагол, а не название статьи.
+	Button string
+}
+
+// Catalog — материалы и правило выбора одного из них.
+//
+// Собирается только через NewCatalog, поэтому материал по умолчанию всегда
+// существует: у выбора нет ветки «не нашли, что показать».
+type Catalog struct {
+	order    []Material
+	byID     map[string]Material
+	fallback Material
+	// routes: source_id конкретного Reel/CTA → материал, который этот Reel
+	// обещал. Пока пусто: у существующих Reel нет своих обещаний, и
+	// придумывать их за автора нельзя. Заполняется на тикете 10.
+	routes map[string]string
+}
+
+// NewCatalog проверяет каталог на входе: пустой список, дубли и неизвестный
+// материал по умолчанию — ошибка конфигурации, а не рантайма.
+func NewCatalog(materials []Material, fallbackID string) (Catalog, error) {
+	if len(materials) == 0 {
+		return Catalog{}, errors.New("catalog is empty")
+	}
+
+	byID := make(map[string]Material, len(materials))
+	for _, m := range materials {
+		if m.ID == "" {
+			return Catalog{}, errors.New("material without id")
+		}
+		if _, dup := byID[m.ID]; dup {
+			return Catalog{}, fmt.Errorf("duplicate material %q", m.ID)
+		}
+		byID[m.ID] = m
+	}
+
+	fallback, ok := byID[fallbackID]
+	if !ok {
+		return Catalog{}, fmt.Errorf("%w: fallback %q", ErrUnknownMaterial, fallbackID)
+	}
+
+	order := make([]Material, len(materials))
+	copy(order, materials)
+
+	return Catalog{
+		order:    order,
+		byID:     byID,
+		fallback: fallback,
+		routes:   map[string]string{},
+	}, nil
+}
+
+// DefaultCatalog — два материала, которые уже опубликованы на сайте и
+// перечислены в тикете 01: система постинга и разбор на 50 млн просмотров.
+func DefaultCatalog() Catalog {
+	materials := []Material{
+		{
+			ID:     MaterialMethod6x5,
+			Title:  "Метод 6 × 5: тридцать роликов за тридцать минут",
+			Path:   "/articles/metod-6x5",
+			Pitch:  "Контент-план на месяц: 6 тем × 5 форматов = 30 сценариев. Темы и форматы берём те, что уже собирают просмотры в вашей нише, а не придумываем с нуля.",
+			Button: "Забрать метод 6 × 5",
+		},
+		{
+			ID:     MaterialBlueprint50,
+			Title:  "Как мы разогнали аккаунты до 50 млн просмотров в месяц",
+			Path:   "/articles/blueprint-50m",
+			Pitch:  "Система целиком: аватар, скрипт, продакшн и аналитика, по которой каждый день видно, что дожимать. 49,7 млн просмотров и 1318 публикаций за 30 дней.",
+			Button: "Показать систему целиком",
+		},
+	}
+
+	// По умолчанию — метод 6 × 5: он даёт результат за один вечер,
+	// а блупринт объясняет систему на объёме и заходит вторым.
+	c, err := NewCatalog(materials, MaterialMethod6x5)
+	if err != nil {
+		// Литерал выше собран в этом же файле: ошибка здесь означает, что
+		// сломан сам код, а не конфигурация снаружи.
+		panic("funnel: broken default catalog: " + err.Error())
+	}
+	return c
+}
+
+// WithRoute привязывает source_id к материалу и возвращает новый каталог:
+// новый Reel не должен требовать правки самого каталога.
+func (c Catalog) WithRoute(sourceID, materialID string) (Catalog, error) {
+	if _, ok := c.byID[materialID]; !ok {
+		return Catalog{}, fmt.Errorf("%w: route %q → %q", ErrUnknownMaterial, sourceID, materialID)
+	}
+
+	routes := make(map[string]string, len(c.routes)+1)
+	maps.Copy(routes, c.routes)
+	routes[sourceID] = materialID
+	c.routes = routes
+
+	return c, nil
+}
+
+// ForSource выбирает один материал: тот, что обещал конкретный Reel, иначе
+// материал по умолчанию. Пустой или незнакомый источник — не ошибка:
+// человек мог открыть бота из профиля или из старого поста.
+func (c Catalog) ForSource(sourceID string) Material {
+	if id, ok := c.routes[sourceID]; ok {
+		return c.byID[id]
+	}
+	return c.fallback
+}
+
+// Alternative — следующий материал для ветки «мне это не подходит».
+// Идём по порядку каталога и заворачиваем на начало, чтобы человек
+// не упёрся в конец списка.
+func (c Catalog) Alternative(currentID string) (Material, bool) {
+	if len(c.order) < 2 {
+		return Material{}, false
+	}
+	for i, m := range c.order {
+		if m.ID == currentID {
+			return c.order[(i+1)%len(c.order)], true
+		}
+	}
+	return c.order[0], true
+}
+
+func (c Catalog) ByID(id string) (Material, error) {
+	m, ok := c.byID[id]
+	if !ok {
+		return Material{}, fmt.Errorf("%w: %q", ErrUnknownMaterial, id)
+	}
+	return m, nil
+}
+
+// Materials — копия списка в порядке показа.
+func (c Catalog) Materials() []Material {
+	out := make([]Material, len(c.order))
+	copy(out, c.order)
+	return out
+}
