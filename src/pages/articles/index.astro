@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { articles } from '../../data/articles';
+import { pinnedArticles, restArticles } from '../../data/articles';
 ---
 
 <Base
@@ -14,8 +14,23 @@ import { articles } from '../../data/articles';
     </div>
   </header>
 
-  <section class="article-list" aria-label="Все статьи">
-    {articles.map((a) => (
+  {pinnedArticles.length > 0 && (
+    <section class="pinned" aria-label="Закреплённые статьи">
+      <p class="block-label">Закреплённое</p>
+      {pinnedArticles.map((a) => (
+        <a class="pinned-card" href={a.href}>
+          <h2>{a.title}</h2>
+          <p>{a.what}</p>
+          {a.stat && <p class="pinned-stat">{a.stat}</p>}
+          <span class="go">Читать →</span>
+        </a>
+      ))}
+    </section>
+  )}
+
+  <section class="article-list" aria-label="Остальные статьи">
+    {pinnedArticles.length > 0 && <p class="block-label list-label">Остальные</p>}
+    {restArticles.map((a) => (
       <a class="article-row" href={a.href}>
         <div class="article-date">{a.dateLabel}</div>
         <div>
@@ -30,10 +45,38 @@ import { articles } from '../../data/articles';
 
 <style>
   .article-list-head { padding-bottom: 26px; }
-  .article-list {
-    border-top: 1px solid var(--line);
-    margin-top: 28px;
+
+  /* Закреплённое — карточка, а не строка списка: это ручной выбор редакции,
+     и он должен читаться иначе, чем лента по датам. */
+  .pinned { margin-top: 28px; }
+  .pinned-card {
+    display: block;
+    padding: 26px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: inherit;
   }
+  .pinned-card + .pinned-card { margin-top: 14px; }
+  .pinned-card:hover { color: inherit; border-color: var(--accent); }
+  .pinned-card:hover h2 { color: var(--accent); }
+  .pinned-card h2 {
+    margin: 0 0 10px;
+    font-size: 1.45rem;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  .pinned-card p { margin: 0 0 14px; color: var(--muted); }
+  .pinned-stat {
+    margin: 0 0 16px !important;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .pinned-card .go { font-size: 0.92rem; color: var(--accent); }
+
+  .article-list { margin-top: 28px; }
+  /* Список идёт сразу за карточкой — отбиваем его от неё. */
+  .article-list .list-label { margin-top: 40px; }
+  .article-row:first-of-type { border-top: 1px solid var(--line); }
   .article-row {
     display: grid;
     grid-template-columns: 110px 1fr auto;
