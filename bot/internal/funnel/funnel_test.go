@@ -241,7 +241,10 @@ func TestChooseGivesTrackedLinkAndOpenRecordsClick(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	if want := siteBase + "/articles/blueprint-50m"; target != want {
+	// Переход должен приходить на сайт с меткой: иначе в аналитике он
+	// попадёт в direct и станет неотличим от прямого захода.
+	want := siteBase + "/articles/blueprint-50m?utm_campaign=reel_x&utm_medium=bot&utm_source=telegram"
+	if target != want {
 		t.Errorf("target = %q, want %q", target, want)
 	}
 
@@ -387,5 +390,60 @@ func TestNewRejectsBrokenConfig(t *testing.T) {
 				t.Error("want error, got nil")
 			}
 		})
+	}
+}
+
+// Человек, пришедший с сайта из статьи, получает вторую статью, а не ту
+// же самую: он её только что читал.
+func TestSiteSourceRoutesToTheOtherArticle(t *testing.T) {
+	tests := map[string]struct {
+		source    string
+		wantOffer string
+	}{
+		"из метода 6×5": {source: funnel.SourceSiteMethod6x5, wantOffer: funnel.MaterialBlueprint50},
+		"из блупринта":  {source: funnel.SourceSiteBlueprint50, wantOffer: funnel.MaterialMethod6x5},
+		"с главной":     {source: funnel.SourceSiteHome, wantOffer: funnel.MaterialMethod6x5},
+		"из здоровья":   {source: funnel.SourceSiteHealth, wantOffer: funnel.MaterialMethod6x5},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			f, _ := newMemoryFunnel(t)
+
+			cmd := funnel.StartCommand{UpdateID: 1, User: testUser, Payload: tc.source}
+			reply, err := f.Start(context.Background(), cmd)
+			if err != nil {
+				t.Fatalf("Start: %v", err)
+			}
+			if got := reply.Buttons[0].Action.MaterialID; got != tc.wantOffer {
+				t.Errorf("offer = %q, want %q", got, tc.wantOffer)
+			}
+		})
+	}
+}
+
+// Без источника метка перехода всё равно должна быть: иначе такие люди
+// молча сливаются в direct и исчезают из отчёта.
+func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
+	f, _ := newMemoryFunnel(t)
+	ctx := context.Background()
+
+	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	choose := funnel.ChooseCommand{UpdateID: 2, User: testUser, MaterialID: funnel.MaterialMethod6x5}
+	if _, err := f.Choose(ctx, choose); err != nil {
+		t.Fatalf("Choose: %v", err)
+	}
+
+	target, err := f.Open(ctx, "token-1")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if !strings.Contains(target, "utm_campaign=direct") {
+		t.Errorf("target = %q, want utm_campaign=direct", target)
+	}
+	if !strings.Contains(target, "utm_medium=bot") {
+		t.Errorf("target = %q, want utm_medium=bot", target)
 	}
 }

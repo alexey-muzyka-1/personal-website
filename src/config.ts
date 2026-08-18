@@ -6,6 +6,12 @@ export const SITE = {
   hermesAgent: 'https://github.com/alexey-muzyka-1/hermes-content-agent', // open-source контент-агент
   hermesDocs: 'https://hermes-agent.nousresearch.com/docs/',
 
+  // Бот личной воронки: юзернейм без @, например 'leshamuzyka_bot'.
+  // Пока пусто — на сайте нет ни одной ссылки на бота и всё работает как
+  // раньше. Впишешь — блок на главной и концовки статей начнут вести в
+  // бота, каждое место со своей меткой источника (src/data/funnel.ts).
+  telegramBot: '',
+
   // Канал. Пока пусто — блок на главной ведёт в чат (SITE.telegram).
   // Впишешь ссылку — блок начнёт вести в канал.
   // Впишешь число подписчиков — оно покажется рядом как соцпруф.

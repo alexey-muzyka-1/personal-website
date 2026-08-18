@@ -6,6 +6,8 @@ import Callout from '../../components/article/Callout.astro';
 import Comparison from '../../components/article/Comparison.astro';
 import Checks from '../../components/article/Checks.astro';
 import InlineCta from '../../components/article/InlineCta.astro';
+import BotCta from '../../components/article/BotCta.astro';
+import { FUNNEL_SOURCE } from '../../data/funnel';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const vmCampaign = 'metod-6x5';
@@ -537,6 +539,13 @@ const commands = `Покажи мои аккаунты и средние про�
       text="Добавьте свой аккаунт и пять конкурентов, отсортируйте по вирусности и выгрузите таблицу. Дальше метод работает сам."
       href={vm}
       action="Открыть Viralmaxing →"
+    />
+
+    <BotCta
+      source={FUNNEL_SOURCE.method6x5}
+      title="Дальше — разбор на 50 млн просмотров"
+      text="Система целиком: аватар, скрипт, продакшн и аналитика, по которой каждый день видно, что дожимать."
+      action="Забрать в Telegram →"
     />
   </Fragment>
 </Article>

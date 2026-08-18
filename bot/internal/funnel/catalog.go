@@ -81,6 +81,17 @@ func NewCatalog(materials []Material, fallbackID string) (Catalog, error) {
 	}, nil
 }
 
+// Метки источников, которые ставит сам сайт. Один экран — одна метка,
+// иначе непонятно, какое место действительно приводит людей.
+//
+// Формат тот же, что у меток Reel: только латиница, цифры, _ и -.
+const (
+	SourceSiteHome        = "site_home"
+	SourceSiteMethod6x5   = "site_metod6x5"
+	SourceSiteBlueprint50 = "site_blueprint50"
+	SourceSiteHealth      = "site_health"
+)
+
 // DefaultCatalog — два материала, которые уже опубликованы на сайте и
 // перечислены в тикете 01: система постинга и разбор на 50 млн просмотров.
 func DefaultCatalog() Catalog {
@@ -108,6 +119,19 @@ func DefaultCatalog() Catalog {
 		// Литерал выше собран в этом же файле: ошибка здесь означает, что
 		// сломан сам код, а не конфигурация снаружи.
 		panic("funnel: broken default catalog: " + err.Error())
+	}
+
+	// Пришедшему из статьи предлагаем не её же, а вторую: он только что
+	// прочитал первую, и повторное предложение выглядит как невнимание.
+	routes := map[string]string{
+		SourceSiteMethod6x5:   MaterialBlueprint50,
+		SourceSiteBlueprint50: MaterialMethod6x5,
+	}
+	for source, material := range routes {
+		c, err = c.WithRoute(source, material)
+		if err != nil {
+			panic("funnel: broken default route: " + err.Error())
+		}
 	}
 	return c
 }

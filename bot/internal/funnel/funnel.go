@@ -308,13 +308,33 @@ func (f *Funnel) Open(ctx context.Context, token string) (string, error) {
 			return fmt.Errorf("appending %s: %w", EventMaterialOpened, err)
 		}
 
-		target = f.siteBase + m.Path
+		target = f.articleURL(m, link.SourceID)
 		return nil
 	})
 	if err != nil {
 		return "", err
 	}
 	return target, nil
+}
+
+// articleURL — адрес статьи с меткой перехода.
+//
+// Метка нужна аналитике сайта: без неё переход из бота попадает в direct
+// и неотличим от человека, который просто открыл сайт. utm_campaign несёт
+// исходный Reel, поэтому путь «Reel → бот → статья» виден целиком.
+// Telegram ID в адрес не попадает — он не должен оказаться в GA.
+func (f *Funnel) articleURL(m Material, sourceID string) string {
+	campaign := sourceID
+	if campaign == "" {
+		campaign = "direct"
+	}
+
+	query := url.Values{}
+	query.Set("utm_source", "telegram")
+	query.Set("utm_medium", "bot")
+	query.Set("utm_campaign", campaign)
+
+	return f.siteBase + m.Path + "?" + query.Encode()
 }
 
 // begin — общий пролог шага: отсечь повторный update и отметить, что

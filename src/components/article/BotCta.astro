@@ -1,0 +1,30 @@
+---
+// Переход из статьи в бота личной воронки.
+//
+// Не гейт: всё, что есть на сайте, остаётся открытым и без бота. Бот —
+// про продолжение: он помнит, откуда человек пришёл, и отдаёт следующий
+// материал, а не тот же самый.
+//
+// Пока юзернейм бота не вписан в config.ts, блок не рендерится вообще.
+import { botHref, type FunnelSource } from '../../data/funnel';
+
+interface Props {
+  source: FunnelSource;
+  title: string;
+  text: string;
+  action: string;
+}
+const { source, title, text, action } = Astro.props;
+const href = botHref(source);
+---
+
+{href && (
+  <div class="inline-cta" data-cta="article-outro-bot">
+    <div>
+      <span>TELEGRAM</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </div>
+    <a href={href}>{action}</a>
+  </div>
+)}

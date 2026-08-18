@@ -5,6 +5,8 @@ import RunTimeline from '../../components/health/RunTimeline.astro';
 import VaultMock from '../../components/health/VaultMock.astro';
 import AgentChat from '../../components/health/AgentChat.astro';
 import { SITE } from '../../config';
+import BotCta from '../../components/article/BotCta.astro';
+import { FUNNEL_SOURCE } from '../../data/funnel';
 import agentPrompt from '../../assets/health-starter-vault/PROMPT-FOR-AGENT.md?raw';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -438,6 +440,13 @@ pain_level: 0
         <a href={`${base}articles/blueprint-50m`}>как мы разогнали аккаунты до 50 млн
         просмотров в месяц</a>. Тоже система целиком, со скриншотами и цифрами.
       </p>
+
+      <BotCta
+        source={FUNNEL_SOURCE.health}
+        title="Разборы систем — в Telegram"
+        text="Бот отдаёт материалы целиком и подсказывает, с чего начать. Всё, что есть на сайте, остаётся открытым и без него."
+        action="Открыть бота →"
+      />
     </section>
 
     <script is:inline>
