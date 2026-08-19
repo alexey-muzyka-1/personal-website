@@ -1,0 +1,71 @@
+---
+# Выкатка воронки на подготовленную машину.
+#
+# Исходники синхронизируются и собираются прямо на месте: реестр образов
+# и CI ради одного маленького бинарника — лишний слой, который нужно
+# отдельно поднимать и чинить.
+-   name: Deploy funnel
+    hosts: production
+    remote_user: root
+    vars:
+        compose: docker compose --env-file deploy/.env -f deploy/docker-compose.yml
+
+    tasks:
+        -   name: Ensure app directory exists
+            file:
+                path: "{{ app_dir }}"
+                state: directory
+                mode: '0750'
+
+        -   name: Look for secrets on the host
+            stat:
+                path: "{{ app_dir }}/deploy/.env"
+            register: env_file
+
+        # Секреты Ansible не возит принципиально: тогда токен бота и
+        # пароль базы живут ровно в одном месте — на самой машине.
+        -   name: Refuse to deploy without secrets
+            assert:
+                that: env_file.stat.exists
+                fail_msg: >-
+                    Нет {{ app_dir }}/deploy/.env.
+                    Скопировать на машину deploy/.env.example, заполнить и повторить.
+
+        -   name: Sync sources
+            synchronize:
+                src: "{{ playbook_dir }}/../../"
+                dest: "{{ app_dir }}/"
+                delete: yes
+                rsync_opts:
+                    - "--exclude=.git"
+                    - "--exclude=deploy/.env"
+                    - "--exclude=deploy/rclone.conf"
+                    - "--exclude=deploy/vps_setup/inventories/*/hosts.yml"
+
+        -   name: Build and start containers
+            command: "{{ compose }} up -d --build"
+            args:
+                chdir: "{{ app_dir }}"
+
+        # Тег never: миграции не едут вместе с кодом, только по явной
+        # команде make migrate. Схема базы лидов не должна меняться
+        # побочным эффектом выкатки.
+        -   name: Apply migrations
+            command: "{{ compose }} --profile tools run --rm migrate up"
+            args:
+                chdir: "{{ app_dir }}"
+            tags:
+                - migrate
+                - never
+
+        -   name: Wait until the bot answers from outside
+            uri:
+                url: "https://{{ bot_domain }}/healthz"
+                status_code: 200
+            delegate_to: localhost
+            register: health
+            until: health.status == 200
+            retries: 10
+            delay: 6
+            tags:
+                - check

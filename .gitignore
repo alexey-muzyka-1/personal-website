@@ -20,3 +20,4 @@ npm-debug.log*
 # секреты и конфиги деплоя
 deploy/.env
 deploy/rclone.conf
+bot/deploy/vps_setup/inventories/*/hosts.yml
