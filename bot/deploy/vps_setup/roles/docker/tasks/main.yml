@@ -17,15 +17,17 @@
         state: directory
         mode: '0755'
 
+# Дистрибутив берём из фактов, а не прибиваем: на DigitalOcean по
+# умолчанию Ubuntu, а исходная роль в viralmaxing рассчитана на Debian.
 -   name: Add Docker GPG key
     get_url:
-        url: https://download.docker.com/linux/debian/gpg
+        url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
         dest: /etc/apt/keyrings/docker.asc
         mode: '0644'
 
 -   name: Add Docker repository
     apt_repository:
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
         update_cache: yes
