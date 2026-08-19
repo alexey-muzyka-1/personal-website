@@ -107,6 +107,10 @@ type Link struct {
 }
 
 // Reply — что бот говорит человеку.
+//
+// Text размечен минимальным HTML: <b>, <i> и <blockquote>. Разметка это
+// часть реплики, а не транспорта: решение «название жирным, обещание
+// цитатой» принимается там же, где написан текст.
 type Reply struct {
 	Text    string
 	Buttons []Button
@@ -128,7 +132,6 @@ type ActionKind int
 
 const (
 	ActionNone  ActionKind = iota // нулевое значение = кнопка-ссылка
-	ActionTake                    // забрать материал
 	ActionOther                   // «мне это не подходит»
 	ActionRole                    // ответ на вопрос про команду
 )

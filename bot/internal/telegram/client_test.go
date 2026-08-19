@@ -64,8 +64,8 @@ func TestSendMessageBuildsInlineKeyboard(t *testing.T) {
 	reply := funnel.Reply{
 		Text: "текст",
 		Buttons: []funnel.Button{
-			{Label: "Забрать", Action: funnel.Action{Kind: funnel.ActionTake, MaterialID: "metod-6x5"}},
-			{Label: "Открыть статью", URL: "https://bot.test/r/abc"},
+			{Label: "Открыть разбор", URL: "https://bot.test/r/abc"},
+			{Label: "Мне это не подходит", Action: funnel.Action{Kind: funnel.ActionOther, MaterialID: "metod-6x5"}},
 		},
 	}
 	if err := client.SendMessage(context.Background(), 42, reply); err != nil {
@@ -88,15 +88,19 @@ func TestSendMessageBuildsInlineKeyboard(t *testing.T) {
 	}
 
 	first := rows[0].([]any)[0].(map[string]any)
-	if first["callback_data"] != "take:metod-6x5" {
-		t.Errorf("callback_data = %v, want take:metod-6x5", first["callback_data"])
+	if first["url"] != "https://bot.test/r/abc" {
+		t.Errorf("url = %v", first["url"])
+	}
+	if _, leaked := first["callback_data"]; leaked {
+		t.Error("link button must not carry callback data")
 	}
 	second := rows[1].([]any)[0].(map[string]any)
-	if second["url"] != "https://bot.test/r/abc" {
-		t.Errorf("url = %v", second["url"])
+	if second["callback_data"] != "other:metod-6x5" {
+		t.Errorf("callback_data = %v, want other:metod-6x5", second["callback_data"])
 	}
-	if _, leaked := second["callback_data"]; leaked {
-		t.Error("link button must not carry callback data")
+	// Разметка обязана уезжать в Telegram, иначе теги приедут текстом.
+	if got := rec.body["parse_mode"]; got != "HTML" {
+		t.Errorf("parse_mode = %v, want HTML", got)
 	}
 }
 

@@ -84,7 +84,7 @@ func renderEntries(ctx context.Context, b *strings.Builder) error {
 			if err != nil {
 				return fmt.Errorf("entry %q, role %v: %w", e.source, role, err)
 			}
-			m, err := sess.catalog.ByID(reply.Buttons[0].Action.MaterialID)
+			m, err := sess.catalog.ByID(reply.Buttons[1].Action.MaterialID)
 			if err != nil {
 				return err
 			}
@@ -126,18 +126,12 @@ func renderDialog(ctx context.Context, b *strings.Builder) error {
 	}
 	writeScreen(b, "2. Ответил «"+start.Buttons[0].Label+"»", "кнопка `role:solo`", qualified)
 
-	offered := qualified.Buttons[0].Action.MaterialID
-	choose, _, err := s.choose(ctx, offered)
+	offered := qualified.Buttons[1].Action.MaterialID
+	target, _, err := s.open(ctx, tokenFromButton(qualified))
 	if err != nil {
 		return err
 	}
-	writeScreen(b, "3. Нажал «"+qualified.Buttons[0].Label+"»", "кнопка `take:"+offered+"`", choose)
-
-	target, _, err := s.open(ctx, tokenFromButton(choose))
-	if err != nil {
-		return err
-	}
-	b.WriteString("### 4. Нажал «" + choose.Buttons[0].Label + "»\n\n")
+	b.WriteString("### 3. Нажал «" + qualified.Buttons[0].Label + "»\n\n")
 	b.WriteString("Открывается статья на сайте:\n\n")
 	b.WriteString("```\n" + target + "\n```\n\n")
 	b.WriteString("Метка перехода нужна аналитике сайта: без неё человек из бота ")
@@ -148,10 +142,11 @@ func renderDialog(ctx context.Context, b *strings.Builder) error {
 	if err != nil {
 		return err
 	}
-	writeScreen(b, "5. Вместо этого нажал «"+qualified.Buttons[1].Label+"»", "кнопка `other:"+offered+"`", alt)
+	writeScreen(b, "4. Вместо этого нажал «"+qualified.Buttons[1].Label+"»", "кнопка `other:"+offered+"`", alt)
 
-	b.WriteString("Дальше всё повторяется: кнопка ведёт на тот же экран 3, ")
-	b.WriteString("только со вторым материалом.\n\n")
+	b.WriteString("Экран тот же, только со вторым разбором. Ответ на нажатие ")
+	b.WriteString("**заменяет** сообщение, а не добавляет новое: старые кнопки ")
+	b.WriteString("исчезают, и прыгать по воронке бесконечно нельзя.\n\n")
 	return nil
 }
 
@@ -182,14 +177,7 @@ func renderEvents(ctx context.Context, b *strings.Builder) error {
 	}
 	steps = append(steps, step{"ответил про команду", events})
 
-	offered := qualified.Buttons[0].Action.MaterialID
-	choose, events, err := s.choose(ctx, offered)
-	if err != nil {
-		return err
-	}
-	steps = append(steps, step{"выбрал материал", events})
-
-	_, events, err = s.open(ctx, tokenFromButton(choose))
+	_, events, err = s.open(ctx, tokenFromButton(qualified))
 	if err != nil {
 		return err
 	}
@@ -224,7 +212,7 @@ func renderEdgeCases(ctx context.Context, b *strings.Builder) error {
 	if err != nil {
 		return err
 	}
-	offered, err := s.catalog.ByID(broken.Buttons[0].Action.MaterialID)
+	offered, err := s.catalog.ByID(broken.Buttons[1].Action.MaterialID)
 	if err != nil {
 		return err
 	}
@@ -316,16 +304,6 @@ func (s *session) repeatLastStart(ctx context.Context) (funnel.Reply, error) {
 	})
 }
 
-func (s *session) choose(ctx context.Context, materialID string) (funnel.Reply, []funnel.Event, error) {
-	s.update++
-	reply, err := s.funnel.Choose(ctx, funnel.ChooseCommand{
-		UpdateID:   s.update,
-		User:       s.user,
-		MaterialID: materialID,
-	})
-	return reply, s.fresh(), err
-}
-
 func (s *session) alternative(ctx context.Context, materialID string) (funnel.Reply, []funnel.Event, error) {
 	s.update++
 	reply, err := s.funnel.Alternative(ctx, funnel.AlternativeCommand{
@@ -374,10 +352,10 @@ func writeScreen(b *strings.Builder, title, trigger string, reply funnel.Reply) 
 
 func actionCode(a funnel.Action) string {
 	switch a.Kind {
-	case funnel.ActionTake:
-		return "take:" + a.MaterialID
 	case funnel.ActionOther:
 		return "other:" + a.MaterialID
+	case funnel.ActionRole:
+		return "role:" + a.Role.String()
 	default:
 		return "?"
 	}

@@ -72,10 +72,44 @@ type inlineKeyboard struct {
 type sendMessageRequest struct {
 	ChatID      int64           `json:"chat_id"`
 	Text        string          `json:"text"`
+	ParseMode   string          `json:"parse_mode"`
 	ReplyMarkup *inlineKeyboard `json:"reply_markup,omitempty"`
 	// Ссылки на статьи разворачиваются в громоздкое превью и отодвигают
 	// кнопку вниз — в этом сценарии превью только мешает.
 	DisablePreview bool `json:"disable_web_page_preview"`
+}
+
+type editMessageRequest struct {
+	ChatID         int64           `json:"chat_id"`
+	MessageID      int64           `json:"message_id"`
+	Text           string          `json:"text"`
+	ParseMode      string          `json:"parse_mode"`
+	ReplyMarkup    *inlineKeyboard `json:"reply_markup,omitempty"`
+	DisablePreview bool            `json:"disable_web_page_preview"`
+}
+
+// parseMode — реплики размечены узким HTML: <b>, <i>, <blockquote>.
+const parseMode = "HTML"
+
+// EditMessage заменяет текст и кнопки уже отправленного сообщения.
+func (c *Client) EditMessage(ctx context.Context, chatID, messageID int64, reply funnel.Reply) error {
+	markup, err := keyboard(reply.Buttons)
+	if err != nil {
+		return fmt.Errorf("building keyboard: %w", err)
+	}
+
+	req := editMessageRequest{
+		ChatID:         chatID,
+		MessageID:      messageID,
+		Text:           reply.Text,
+		ParseMode:      parseMode,
+		ReplyMarkup:    markup,
+		DisablePreview: true,
+	}
+	if err := c.call(ctx, "editMessageText", req); err != nil {
+		return fmt.Errorf("editMessageText: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) SendMessage(ctx context.Context, chatID int64, reply funnel.Reply) error {
@@ -87,6 +121,7 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, reply funnel.Rep
 	req := sendMessageRequest{
 		ChatID:         chatID,
 		Text:           reply.Text,
+		ParseMode:      parseMode,
 		ReplyMarkup:    markup,
 		DisablePreview: true,
 	}

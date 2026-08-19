@@ -141,10 +141,10 @@ func TestStartKeepsFirstTouchAndFollowsLastTouch(t *testing.T) {
 		t.Errorf("last touch = %q, want reel_second", history[1].SourceID)
 	}
 
-	// Выбор относится к свежему источнику, а не к первому.
-	choose := funnel.ChooseCommand{UpdateID: 4, User: testUser, MaterialID: funnel.MaterialMethod6x5}
-	if _, err := f.Choose(ctx, choose); err != nil {
-		t.Fatalf("Choose: %v", err)
+	// Выдача относится к свежему источнику, а не к первому.
+	qualify := funnel.QualifyCommand{UpdateID: 4, User: testUser, Role: funnel.RoleSolo}
+	if _, err := f.Qualify(ctx, qualify); err != nil {
+		t.Fatalf("Qualify: %v", err)
 	}
 	if got := findEvent(t, mem, funnel.EventMaterialSelected).SourceID; got != "reel_second" {
 		t.Errorf("material_selected source = %q, want reel_second", got)
@@ -220,14 +220,15 @@ func TestChooseGivesTrackedLinkAndOpenRecordsClick(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 
-	choose := funnel.ChooseCommand{UpdateID: 2, User: testUser, MaterialID: funnel.MaterialBlueprint50}
-	reply, err := f.Choose(ctx, choose)
+	reply, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: funnel.RoleTeam})
 	if err != nil {
-		t.Fatalf("Choose: %v", err)
+		t.Fatalf("Qualify: %v", err)
 	}
 
-	if len(reply.Buttons) != 1 {
-		t.Fatalf("want one link button, got %d", len(reply.Buttons))
+	// Ссылка выдаётся сразу вместе с рекомендацией: лишней кнопки
+	// «Забрать» между ними больше нет.
+	if len(reply.Buttons) != 2 {
+		t.Fatalf("want link + escape, got %d", len(reply.Buttons))
 	}
 	wantURL := linkBase + "/r/token-1"
 	if reply.Buttons[0].URL != wantURL {
@@ -282,16 +283,22 @@ func TestOpenUnknownToken(t *testing.T) {
 	}
 }
 
-func TestChooseUnknownMaterial(t *testing.T) {
-	f, mem := newMemoryFunnel(t)
+func TestAlternativeToUnknownMaterialStillAnswers(t *testing.T) {
+	f, _ := newMemoryFunnel(t)
+	ctx := context.Background()
 
-	cmd := funnel.ChooseCommand{UpdateID: 1, User: testUser, MaterialID: "lesson-that-does-not-exist"}
-	_, err := f.Choose(context.Background(), cmd)
-	if !errors.Is(err, funnel.ErrUnknownMaterial) {
-		t.Fatalf("err = %v, want ErrUnknownMaterial", err)
+	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser}); err != nil {
+		t.Fatalf("Start: %v", err)
 	}
-	if got := len(mem.Events()); got != 0 {
-		t.Errorf("unknown material must not write events, got %v", eventNames(mem.Events()))
+	// Каталог из двух материалов: даже на незнакомый идентификатор есть
+	// что предложить, человек не остаётся ни с чем.
+	cmd := funnel.AlternativeCommand{UpdateID: 2, User: testUser, CurrentMaterialID: "lesson-that-does-not-exist"}
+	reply, err := f.Alternative(ctx, cmd)
+	if err != nil {
+		t.Fatalf("Alternative: %v", err)
+	}
+	if len(reply.Buttons) == 0 {
+		t.Error("want a reply with buttons")
 	}
 }
 
@@ -310,10 +317,10 @@ func TestAlternativeOffersTheOtherMaterial(t *testing.T) {
 		t.Fatalf("Alternative: %v", err)
 	}
 
-	if len(reply.Buttons) != 1 {
-		t.Fatalf("want a single button, got %d", len(reply.Buttons))
+	if len(reply.Buttons) != 2 {
+		t.Fatalf("want link + escape, got %d", len(reply.Buttons))
 	}
-	if got := reply.Buttons[0].Action.MaterialID; got != funnel.MaterialBlueprint50 {
+	if got := reply.Buttons[1].Action.MaterialID; got != funnel.MaterialBlueprint50 {
 		t.Errorf("alternative material = %q, want %q", got, funnel.MaterialBlueprint50)
 	}
 	if got := findEvent(t, mem, funnel.EventAlternativeAsked).MaterialID; got != funnel.MaterialMethod6x5 {
@@ -431,7 +438,8 @@ func TestRoleAndSourceDecideTheMaterial(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Qualify: %v", err)
 			}
-			if got := reply.Buttons[0].Action.MaterialID; got != tc.wantOffer {
+			// Первая кнопка — ссылка, материал несёт вторая.
+			if got := reply.Buttons[1].Action.MaterialID; got != tc.wantOffer {
 				t.Errorf("offer = %q, want %q", got, tc.wantOffer)
 			}
 			if got := mem.Role(testUser.TelegramID); got != tc.role {
@@ -467,9 +475,8 @@ func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser}); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	choose := funnel.ChooseCommand{UpdateID: 2, User: testUser, MaterialID: funnel.MaterialMethod6x5}
-	if _, err := f.Choose(ctx, choose); err != nil {
-		t.Fatalf("Choose: %v", err)
+	if _, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: funnel.RoleSolo}); err != nil {
+		t.Fatalf("Qualify: %v", err)
 	}
 
 	target, err := f.Open(ctx, "token-1")

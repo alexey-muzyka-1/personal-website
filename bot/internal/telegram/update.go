@@ -70,15 +70,12 @@ func startPayload(text string) (payload string, ok bool) {
 // Действия кодируются в callback_data как «take:metod-6x5». Лимит
 // Telegram — 64 байта, идентификаторы материалов короткие.
 const (
-	actionTake  = "take"
 	actionOther = "other"
 	actionRole  = "role"
 )
 
 func encodeAction(a funnel.Action) (string, error) {
 	switch a.Kind {
-	case funnel.ActionTake:
-		return actionTake + ":" + a.MaterialID, nil
 	case funnel.ActionOther:
 		return actionOther + ":" + a.MaterialID, nil
 	case funnel.ActionRole:
@@ -97,8 +94,6 @@ func decodeAction(data string) (funnel.Action, error) {
 	}
 
 	switch kind {
-	case actionTake:
-		return funnel.Action{Kind: funnel.ActionTake, MaterialID: value}, nil
 	case actionOther:
 		return funnel.Action{Kind: funnel.ActionOther, MaterialID: value}, nil
 	case actionRole:

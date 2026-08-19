@@ -79,13 +79,6 @@ type StartCommand struct {
 	Payload  string
 }
 
-// ChooseCommand — человек нажал кнопку материала.
-type ChooseCommand struct {
-	UpdateID   int64
-	User       User
-	MaterialID string
-}
-
 // AlternativeCommand — «мне это не подходит» для показанного материала.
 type AlternativeCommand struct {
 	UpdateID          int64
@@ -180,7 +173,8 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 				"",
 				"Выкладываю разборы того, как мы каждый день выпускаем короткие видео. Статьи целиком, без подписки и почты.",
 				"",
-				"Один вопрос, чтобы дать нужное: контент ты тянешь сам или с командой?",
+				bold("Контент ты тянешь сам или с командой?"),
+				"Один вопрос, чтобы дать нужное.",
 			),
 			Buttons: []Button{
 				{Label: "Сам", Action: Action{Kind: ActionRole, Role: RoleSolo}},
@@ -228,19 +222,64 @@ func (f *Funnel) Qualify(ctx context.Context, cmd QualifyCommand) (Reply, error)
 			return Reply{}, fmt.Errorf("appending %s: %w", EventRoleAnswered, err)
 		}
 
-		return Reply{
-			Text: lines(
-				roleLead(cmd.Role),
-				"",
-				quote(m.Title),
-				m.Pitch,
-			),
-			Buttons: []Button{
-				{Label: m.Button, Action: Action{Kind: ActionTake, MaterialID: m.ID}},
-				{Label: "Мне это не подходит", Action: Action{Kind: ActionOther, MaterialID: m.ID}},
-			},
-		}, nil
+		return f.offer(ctx, s, cmd.User, m, sourceID, roleLead(cmd.Role), at)
 	})
+}
+
+// offer — единственное место, где человеку выдаётся материал.
+//
+// Раньше между рекомендацией и ссылкой стояла лишняя кнопка «Забрать».
+// Она ничего не решала: человек уже сказал, что ему нужно. Ссылка идёт
+// сразу, а событие выбора пишется здесь же.
+func (f *Funnel) offer(
+	ctx context.Context,
+	s Store,
+	user User,
+	m Material,
+	sourceID string,
+	lead string,
+	at time.Time,
+) (Reply, error) {
+	token, err := f.newToken()
+	if err != nil {
+		return Reply{}, fmt.Errorf("creating link token: %w", err)
+	}
+	link := Link{
+		Token:      token,
+		TelegramID: user.TelegramID,
+		MaterialID: m.ID,
+		SourceID:   sourceID,
+		CreatedAt:  at,
+	}
+	if err := s.SaveLink(ctx, link); err != nil {
+		return Reply{}, fmt.Errorf("saving link: %w", err)
+	}
+
+	event := Event{
+		TelegramID: user.TelegramID,
+		Name:       EventMaterialSelected,
+		SourceID:   sourceID,
+		MaterialID: m.ID,
+		OccurredAt: at,
+	}
+	if err := s.AppendEvent(ctx, event); err != nil {
+		return Reply{}, fmt.Errorf("appending %s: %w", EventMaterialSelected, err)
+	}
+
+	return Reply{
+		Text: lines(
+			lead,
+			"",
+			bold(m.Title),
+			blockquote(m.Pitch),
+			"",
+			m.Inside,
+		),
+		Buttons: []Button{
+			{Label: "Открыть разбор", URL: f.linkBase + "/r/" + token},
+			{Label: "Мне это не подходит", Action: Action{Kind: ActionOther, MaterialID: m.ID}},
+		},
+	}, nil
 }
 
 // roleLead — одна строка, которая показывает, что ответ услышали.
@@ -250,59 +289,6 @@ func roleLead(role Role) string {
 		return "Тогда с того, что держится на объёме и на нескольких руках."
 	}
 	return "Тогда с того, что собирается в одиночку за один вечер."
-}
-
-// Choose — человек выбрал материал. Ссылку отдаём не прямую, а через свой
-// redirect: иначе факт перехода не существует в данных.
-func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
-	m, err := f.catalog.ByID(cmd.MaterialID)
-	if err != nil {
-		return Reply{}, err
-	}
-
-	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
-		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
-		if err != nil {
-			return Reply{}, fmt.Errorf("reading last source: %w", err)
-		}
-
-		token, err := f.newToken()
-		if err != nil {
-			return Reply{}, fmt.Errorf("creating link token: %w", err)
-		}
-		link := Link{
-			Token:      token,
-			TelegramID: cmd.User.TelegramID,
-			MaterialID: m.ID,
-			SourceID:   sourceID,
-			CreatedAt:  at,
-		}
-		if err := s.SaveLink(ctx, link); err != nil {
-			return Reply{}, fmt.Errorf("saving link: %w", err)
-		}
-
-		event := Event{
-			TelegramID: cmd.User.TelegramID,
-			Name:       EventMaterialSelected,
-			SourceID:   sourceID,
-			MaterialID: m.ID,
-			OccurredAt: at,
-		}
-		if err := s.AppendEvent(ctx, event); err != nil {
-			return Reply{}, fmt.Errorf("appending %s: %w", EventMaterialSelected, err)
-		}
-
-		return Reply{
-			Text: lines(
-				quote(m.Title),
-				"",
-				m.Inside,
-			),
-			Buttons: []Button{
-				{Label: "Открыть", URL: f.linkBase + "/r/" + token},
-			},
-		}, nil
-	})
 }
 
 // Alternative — escape-ветка. В тикете 01 материала всего два, поэтому
@@ -331,17 +317,7 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 			return Reply{}, fmt.Errorf("appending %s: %w", EventAlternativeAsked, err)
 		}
 
-		return Reply{
-			Text: lines(
-				"Тогда вот второе.",
-				"",
-				quote(alt.Title),
-				alt.Pitch,
-			),
-			Buttons: []Button{
-				{Label: alt.Button, Action: Action{Kind: ActionTake, MaterialID: alt.ID}},
-			},
-		}, nil
+		return f.offer(ctx, s, cmd.User, alt, sourceID, "Тогда вот второе.", at)
 	})
 }
 
@@ -454,7 +430,14 @@ func lines(parts ...string) string {
 	return strings.Join(parts, "\n")
 }
 
-// quote — типографские кавычки вокруг названия статьи.
-func quote(s string) string {
-	return "«" + s + "»"
+// Разметка реплик. Telegram понимает узкий набор тегов, и мы держимся
+// внутри него: жирный для названия, цитата для обещания.
+func bold(s string) string       { return "<b>" + escape(s) + "</b>" }
+func blockquote(s string) string { return "<blockquote>" + escape(s) + "</blockquote>" }
+
+// escape — тексты наши, но угловые скобки в них однажды появятся, и
+// тогда сообщение молча не отправится.
+func escape(s string) string {
+	r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	return r.Replace(s)
 }
