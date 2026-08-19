@@ -62,8 +62,7 @@ jobs:
       - name: Build and restart
         run: |
           ssh root@${{ secrets.FUNNEL_HOST }} \
-            'cd /opt/funnel && docker compose --env-file deploy/.env \
-             -f deploy/docker-compose.yml up -d --build'
+            '/opt/funnel/deploy/compose.sh up -d --build'
 
       # Миграции сознательно не здесь: схема базы лидов меняется только
       # руками, командой make migrate ENV=prod.

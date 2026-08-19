@@ -12,7 +12,7 @@
 
 set -eu
 
-COMPOSE="docker compose"
+COMPOSE="$(cd "$(dirname "$0")" && pwd)/compose.sh"
 CHECK_DB="funnel_restore_check"
 
 # psql внутри контейнера должен ходить под пользователем базы, а не под
