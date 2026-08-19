@@ -4,6 +4,7 @@ import { SITE } from '../config';
 import { homeTools } from '../data/tools';
 import { featuredArticle } from '../data/articles';
 import { botHref, FUNNEL_SOURCE } from '../data/funnel';
+import { systems, figures } from '../data/systems';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -60,8 +61,24 @@ const schema = [
       <p class="hero-tagline">
         Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.
       </p>
+      <p class="status">
+        <span class="dot" aria-hidden="true"></span>работает прямо сейчас · последний разбор 14.08.2026
+      </p>
     </div>
   </header>
+
+  <div class="hero-actions" data-cta="hero">
+    <a class="btn-primary" href={botHome ?? tgHref}>
+      {botHome ? 'Забрать разборы в Telegram' : tgLabel} →
+    </a>
+    <a class="btn-open" href={`${base}articles`}>Читать на сайте</a>
+  </div>
+
+  <div class="figures">
+    {figures.map((f) => (
+      <div><span>{f.label}</span><b>{f.value}</b></div>
+    ))}
+  </div>
 
   <section class="block section-major">
     <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
@@ -83,7 +100,6 @@ const schema = [
       <div>
         <h3>{featuredArticle.title}</h3>
         <p>{featuredArticle.what}</p>
-        {featuredArticle.stat && <p class="feature-stat">{featuredArticle.stat}</p>}
         <span class="go">Читать →</span>
       </div>
     </a>
@@ -111,39 +127,6 @@ const schema = [
   )}
 
   <section class="block section-major">
-    <h2 class="section-h">Мантра</h2>
-    <a class="mantra-card" href={`${base}mantra`}>
-      <span class="mantra-quote">
-        Никто не придёт тебя спасать. И никто не придёт тебя останавливать.
-      </span>
-      <span class="go">Читать целиком →</span>
-    </a>
-  </section>
-
-  <section class="block section-major">
-    <h2 class="section-h">Продукты</h2>
-    <div class="prod-head">
-      <img src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="44" height="44" />
-      <div>
-        <h3>Viralmaxing</h3>
-        <p>Главный фокус. Две части, каждая под свою работу.</p>
-      </div>
-    </div>
-    <div class="grid">
-      <a class="tile" href={SITE.viralmaxing}>
-        <div class="tile-top"><Icon name="web" size={18} /><b>Веб</b></div>
-        <p>Вся аналитика рилсов в одном экране.</p>
-        <span class="go">viralmaxing.com →</span>
-      </a>
-      <a class="tile" href={SITE.viralmaxingAppStore}>
-        <div class="tile-top"><Icon name="iphone" size={18} /><b>iPhone</b></div>
-        <p>Быстро адаптируешь сценарий под себя и растишь свой аккаунт.</p>
-        <span class="go">App Store →</span>
-      </a>
-    </div>
-  </section>
-
-  <section class="block section-major">
     <h2 class="section-h">Telegram</h2>
     <div class="tg" data-cta="home-telegram">
       <div class="tg-text">
@@ -162,8 +145,27 @@ const schema = [
     </div>
   </section>
 
+  <section class="block section-major">
+    <h2 class="section-h">Что крутится</h2>
+    <p>
+      Рабочий контур целиком. Продукт, которым пользуются другие, и то, что
+      я отдал целиком — забирайте, взамен ничего не нужно.
+    </p>
+    <table class="systems">
+      {systems.map((sys) => (
+        <tr>
+          <td><a class="s-name" href={sys.href}>{sys.name}</a></td>
+          <td class="s-kind">{sys.kind}</td>
+          <td class="s-what">{sys.what}</td>
+          <td class="s-state">{sys.state}</td>
+        </tr>
+      ))}
+    </table>
+  </section>
+
   <p class="more-line">
-    Ещё здесь есть <a href={`${base}articles`}>статьи</a> и
+    Ещё здесь есть <a href={`${base}mantra`}>мантра</a>
+    {', которую я перечитываю, и '}
     <a href={`${base}books`}>список книг</a>, которые на меня повлияли.
   </p>
 </Base>
@@ -198,35 +200,7 @@ const schema = [
     text-wrap: balance;
   }
   .feature p { margin: 0 0 14px; color: var(--muted); }
-  .feature-stat {
-    margin: 0 0 16px !important;
-    color: var(--muted);
-    font-size: 0.82rem;
-    font-variant-numeric: tabular-nums;
-  }
   .feature .go { font-size: 0.92rem; color: var(--accent); }
-
-  /* Мантра: единственный блок на главной, который показывает сам текст,
-     а не описание. Пересказывать первую строку нечем. */
-  .mantra-card {
-    display: block;
-    margin-top: 4px;
-    padding: 26px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    color: inherit;
-  }
-  .mantra-card:hover { color: inherit; border-color: var(--accent); }
-  .mantra-card:hover .mantra-quote { color: var(--accent); }
-  .mantra-quote {
-    display: block;
-    font-family: var(--serif);
-    font-size: 1.3rem;
-    line-height: 1.35;
-    margin-bottom: 14px;
-    text-wrap: balance;
-  }
-  .mantra-card .go { font-size: 0.92rem; color: var(--accent); }
 
   .tg {
     display: flex;
@@ -261,6 +235,9 @@ const schema = [
   .more-line a:hover { text-decoration: underline; }
   @media (max-width: 600px) {
     .feature { grid-template-columns: 1fr; gap: 16px; }
+    /* Кроп дашборда занимал весь первый экран статьи и выталкивал
+       заголовок за сгиб. Ограничиваем. */
+    .feature-thumb { max-width: 200px; }
     .feature-thumb { width: 100%; }
     .tg { display: block; }
     .tg .btn-open { margin-top: 16px; }

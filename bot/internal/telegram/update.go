@@ -72,6 +72,7 @@ func startPayload(text string) (payload string, ok bool) {
 const (
 	actionTake  = "take"
 	actionOther = "other"
+	actionRole  = "role"
 )
 
 func encodeAction(a funnel.Action) (string, error) {
@@ -80,6 +81,8 @@ func encodeAction(a funnel.Action) (string, error) {
 		return actionTake + ":" + a.MaterialID, nil
 	case funnel.ActionOther:
 		return actionOther + ":" + a.MaterialID, nil
+	case funnel.ActionRole:
+		return actionRole + ":" + a.Role.String(), nil
 	case funnel.ActionNone:
 		return "", fmt.Errorf("button without action and without url")
 	default:
@@ -88,16 +91,22 @@ func encodeAction(a funnel.Action) (string, error) {
 }
 
 func decodeAction(data string) (funnel.Action, error) {
-	kind, materialID, found := strings.Cut(data, ":")
-	if !found || materialID == "" {
+	kind, value, found := strings.Cut(data, ":")
+	if !found || value == "" {
 		return funnel.Action{}, fmt.Errorf("malformed callback data %q", data)
 	}
 
 	switch kind {
 	case actionTake:
-		return funnel.Action{Kind: funnel.ActionTake, MaterialID: materialID}, nil
+		return funnel.Action{Kind: funnel.ActionTake, MaterialID: value}, nil
 	case actionOther:
-		return funnel.Action{Kind: funnel.ActionOther, MaterialID: materialID}, nil
+		return funnel.Action{Kind: funnel.ActionOther, MaterialID: value}, nil
+	case actionRole:
+		role, ok := funnel.ParseRole(value)
+		if !ok {
+			return funnel.Action{}, fmt.Errorf("unknown role %q", value)
+		}
+		return funnel.Action{Kind: funnel.ActionRole, Role: role}, nil
 	default:
 		return funnel.Action{}, fmt.Errorf("unknown callback action %q", kind)
 	}

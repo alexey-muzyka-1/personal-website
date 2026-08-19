@@ -17,10 +17,48 @@ import "time"
 // должна переводить названия из кода в стратегию и обратно.
 const (
 	EventBotStarted       = "bot_started"
+	EventRoleAnswered     = "role_answered"
 	EventMaterialSelected = "material_selected"
 	EventMaterialOpened   = "material_opened"
 	EventAlternativeAsked = "alternative_asked"
 )
+
+// Role — ответ на единственный вопрос, который бот задаёт: человек ведёт
+// контент сам или с командой.
+//
+// Это не анкета. Ответ решает, какой разбор отдать первым, и он же
+// понадобится позже: одиночке и команде нужны разные продукты. Ноль —
+// «не спрашивали», чтобы забытый ответ нельзя было принять за «сам».
+type Role int
+
+const (
+	RoleUnknown Role = iota
+	RoleSolo
+	RoleTeam
+)
+
+// String — то, что уезжает в базу и в отчёты.
+func (r Role) String() string {
+	switch r {
+	case RoleSolo:
+		return "solo"
+	case RoleTeam:
+		return "team"
+	default:
+		return ""
+	}
+}
+
+func ParseRole(s string) (Role, bool) {
+	switch s {
+	case "solo":
+		return RoleSolo, true
+	case "team":
+		return RoleTeam, true
+	default:
+		return RoleUnknown, false
+	}
+}
 
 // User — человек в Telegram. Отдельная авторизация не нужна: update уже
 // содержит Telegram user ID.
@@ -92,9 +130,11 @@ const (
 	ActionNone  ActionKind = iota // нулевое значение = кнопка-ссылка
 	ActionTake                    // забрать материал
 	ActionOther                   // «мне это не подходит»
+	ActionRole                    // ответ на вопрос про команду
 )
 
 type Action struct {
 	Kind       ActionKind
 	MaterialID string
+	Role       Role
 }

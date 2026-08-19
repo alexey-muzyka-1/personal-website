@@ -171,14 +171,67 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			return Reply{}, fmt.Errorf("appending %s: %w", EventBotStarted, err)
 		}
 
-		m := f.catalog.ForSource(sourceID)
+		// Один вопрос вместо сразу материала. Он окупается дважды: разборы
+		// действительно разные для одиночки и для команды, и ответ нужен
+		// потом, когда появится что продавать.
 		return Reply{
 			Text: lines(
 				"Привет, это Лёша.",
 				"",
 				"Выкладываю разборы того, как мы каждый день выпускаем короткие видео. Статьи целиком, без подписки и почты.",
 				"",
-				"Начал бы с этой:",
+				"Один вопрос, чтобы дать нужное: контент ты тянешь сам или с командой?",
+			),
+			Buttons: []Button{
+				{Label: "Сам", Action: Action{Kind: ActionRole, Role: RoleSolo}},
+				{Label: "С командой", Action: Action{Kind: ActionRole, Role: RoleTeam}},
+			},
+		}, nil
+	})
+}
+
+// QualifyCommand — ответ на вопрос про команду.
+type QualifyCommand struct {
+	UpdateID int64
+	User     User
+	Role     Role
+}
+
+// Qualify — ответ получен: запоминаем его и отдаём тот разбор, который
+// человеку подходит.
+func (f *Funnel) Qualify(ctx context.Context, cmd QualifyCommand) (Reply, error) {
+	if cmd.Role == RoleUnknown {
+		return Reply{}, errors.New("qualify without a role")
+	}
+
+	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
+		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
+		if err != nil {
+			return Reply{}, fmt.Errorf("reading last source: %w", err)
+		}
+
+		if err := s.SetUserRole(ctx, cmd.User.TelegramID, cmd.Role); err != nil {
+			return Reply{}, fmt.Errorf("saving role: %w", err)
+		}
+
+		m := f.catalog.ForRoleAndSource(cmd.Role, sourceID)
+
+		event := Event{
+			TelegramID: cmd.User.TelegramID,
+			Name:       EventRoleAnswered,
+			SourceID:   sourceID,
+			MaterialID: m.ID,
+			Metadata:   map[string]string{"role": cmd.Role.String()},
+			OccurredAt: at,
+		}
+		if err := s.AppendEvent(ctx, event); err != nil {
+			return Reply{}, fmt.Errorf("appending %s: %w", EventRoleAnswered, err)
+		}
+
+		return Reply{
+			Text: lines(
+				roleLead(cmd.Role),
+				"",
 				quote(m.Title),
 				m.Pitch,
 			),
@@ -188,6 +241,15 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			},
 		}, nil
 	})
+}
+
+// roleLead — одна строка, которая показывает, что ответ услышали.
+// Без неё вопрос выглядит формальностью.
+func roleLead(role Role) string {
+	if role == RoleTeam {
+		return "Тогда с того, что держится на объёме и на нескольких руках."
+	}
+	return "Тогда с того, что собирается в одиночку за один вечер."
 }
 
 // Choose — человек выбрал материал. Ссылку отдаём не прямую, а через свой

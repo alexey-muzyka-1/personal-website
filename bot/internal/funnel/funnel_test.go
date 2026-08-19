@@ -69,7 +69,7 @@ func findEvent(t *testing.T, mem *store.Memory, name string) funnel.Event {
 	return funnel.Event{}
 }
 
-func TestStartRecordsUserSourceAndOffersMaterial(t *testing.T) {
+func TestStartRecordsUserSourceAndAsksTheQuestion(t *testing.T) {
 	f, mem := newMemoryFunnel(t)
 
 	reply, err := f.Start(context.Background(), funnel.StartCommand{
@@ -84,17 +84,19 @@ func TestStartRecordsUserSourceAndOffersMaterial(t *testing.T) {
 	if reply.Skip {
 		t.Fatal("first start must produce a reply")
 	}
-	if !strings.Contains(reply.Text, "Метод 6 × 5") {
-		t.Errorf("reply must offer the default material, got:\n%s", reply.Text)
+	// Первым делом бот задаёт один вопрос, а не суёт материал: ответ
+	// решает, какой разбор подойдёт, и нужен потом для продукта.
+	if !strings.Contains(reply.Text, "сам или с командой") {
+		t.Errorf("reply must ask the question, got:\n%s", reply.Text)
 	}
 	if len(reply.Buttons) != 2 {
-		t.Fatalf("want offer + escape button, got %d", len(reply.Buttons))
+		t.Fatalf("want two answers, got %d", len(reply.Buttons))
 	}
-	if got := reply.Buttons[0].Action; got.Kind != funnel.ActionTake || got.MaterialID != funnel.MaterialMethod6x5 {
-		t.Errorf("first button must take the offered material, got %+v", got)
+	if got := reply.Buttons[0].Action; got.Kind != funnel.ActionRole || got.Role != funnel.RoleSolo {
+		t.Errorf("first button must answer «сам», got %+v", got)
 	}
-	if got := reply.Buttons[1].Action.Kind; got != funnel.ActionOther {
-		t.Errorf("second button must be the escape, got %v", got)
+	if got := reply.Buttons[1].Action; got.Kind != funnel.ActionRole || got.Role != funnel.RoleTeam {
+		t.Errorf("second button must answer «с командой», got %+v", got)
 	}
 
 	started := findEvent(t, mem, funnel.EventBotStarted)
@@ -140,7 +142,7 @@ func TestStartKeepsFirstTouchAndFollowsLastTouch(t *testing.T) {
 	}
 
 	// Выбор относится к свежему источнику, а не к первому.
-	choose := funnel.ChooseCommand{UpdateID: 3, User: testUser, MaterialID: funnel.MaterialMethod6x5}
+	choose := funnel.ChooseCommand{UpdateID: 4, User: testUser, MaterialID: funnel.MaterialMethod6x5}
 	if _, err := f.Choose(ctx, choose); err != nil {
 		t.Fatalf("Choose: %v", err)
 	}
@@ -393,32 +395,66 @@ func TestNewRejectsBrokenConfig(t *testing.T) {
 	}
 }
 
-// Человек, пришедший с сайта из статьи, получает вторую статью, а не ту
-// же самую: он её только что читал.
-func TestSiteSourceRoutesToTheOtherArticle(t *testing.T) {
+// Ответ на вопрос решает, какой разбор человек получит. Отдельно
+// проверяем поправку: если под его роль подходит ровно то, что он только
+// что прочитал на сайте, бот отдаёт второй разбор.
+func TestRoleAndSourceDecideTheMaterial(t *testing.T) {
 	tests := map[string]struct {
 		source    string
+		role      funnel.Role
 		wantOffer string
 	}{
-		"из метода 6×5": {source: funnel.SourceSiteMethod6x5, wantOffer: funnel.MaterialBlueprint50},
-		"из блупринта":  {source: funnel.SourceSiteBlueprint50, wantOffer: funnel.MaterialMethod6x5},
-		"с главной":     {source: funnel.SourceSiteHome, wantOffer: funnel.MaterialMethod6x5},
-		"из здоровья":   {source: funnel.SourceSiteHealth, wantOffer: funnel.MaterialMethod6x5},
+		"сам, без источника":        {source: "", role: funnel.RoleSolo, wantOffer: funnel.MaterialMethod6x5},
+		"с командой, без источника": {source: "", role: funnel.RoleTeam, wantOffer: funnel.MaterialBlueprint50},
+		"сам, но метод уже прочитан": {
+			source: funnel.SourceSiteMethod6x5, role: funnel.RoleSolo, wantOffer: funnel.MaterialBlueprint50,
+		},
+		"с командой, но блупринт уже прочитан": {
+			source: funnel.SourceSiteBlueprint50, role: funnel.RoleTeam, wantOffer: funnel.MaterialMethod6x5,
+		},
+		"с командой, пришёл из метода": {
+			source: funnel.SourceSiteMethod6x5, role: funnel.RoleTeam, wantOffer: funnel.MaterialBlueprint50,
+		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			f, _ := newMemoryFunnel(t)
+			f, mem := newMemoryFunnel(t)
+			ctx := context.Background()
 
-			cmd := funnel.StartCommand{UpdateID: 1, User: testUser, Payload: tc.source}
-			reply, err := f.Start(context.Background(), cmd)
-			if err != nil {
+			start := funnel.StartCommand{UpdateID: 1, User: testUser, Payload: tc.source}
+			if _, err := f.Start(ctx, start); err != nil {
 				t.Fatalf("Start: %v", err)
+			}
+
+			reply, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: tc.role})
+			if err != nil {
+				t.Fatalf("Qualify: %v", err)
 			}
 			if got := reply.Buttons[0].Action.MaterialID; got != tc.wantOffer {
 				t.Errorf("offer = %q, want %q", got, tc.wantOffer)
 			}
+			if got := mem.Role(testUser.TelegramID); got != tc.role {
+				t.Errorf("role saved = %v, want %v", got, tc.role)
+			}
+			answered := findEvent(t, mem, funnel.EventRoleAnswered)
+			if got := answered.Metadata["role"]; got != tc.role.String() {
+				t.Errorf("event role = %q, want %q", got, tc.role.String())
+			}
 		})
+	}
+}
+
+// Роль без ответа — программная ошибка, а не состояние человека.
+func TestQualifyWithoutRoleFails(t *testing.T) {
+	f, mem := newMemoryFunnel(t)
+
+	cmd := funnel.QualifyCommand{UpdateID: 1, User: testUser, Role: funnel.RoleUnknown}
+	if _, err := f.Qualify(context.Background(), cmd); err == nil {
+		t.Fatal("want error, got nil")
+	}
+	if got := len(mem.Events()); got != 0 {
+		t.Errorf("failed qualify must not write events, got %v", eventNames(mem.Events()))
 	}
 }
 

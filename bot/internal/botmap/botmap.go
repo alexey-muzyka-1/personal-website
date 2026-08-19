@@ -68,31 +68,40 @@ func Render(ctx context.Context) (string, error) {
 func renderEntries(ctx context.Context, b *strings.Builder) error {
 	b.WriteString("## Точки входа\n\n")
 	b.WriteString("Одна метка — одно место. По ней видно, какое место приводит людей.\n\n")
-	b.WriteString("| Метка | Где ставится | Что предлагает бот |\n|---|---|---|\n")
+	b.WriteString("| Метка | Где ставится | Ответил «сам» | Ответил «с командой» |\n|---|---|---|---|\n")
 
 	for _, e := range entries {
-		s, err := newSession()
-		if err != nil {
-			return err
-		}
-		reply, _, err := s.start(ctx, e.source)
-		if err != nil {
-			return fmt.Errorf("entry %q: %w", e.source, err)
+		offers := map[funnel.Role]string{}
+		for _, role := range []funnel.Role{funnel.RoleSolo, funnel.RoleTeam} {
+			sess, err := newSession()
+			if err != nil {
+				return err
+			}
+			if _, _, err := sess.start(ctx, e.source); err != nil {
+				return fmt.Errorf("entry %q: %w", e.source, err)
+			}
+			reply, _, err := sess.qualify(ctx, role)
+			if err != nil {
+				return fmt.Errorf("entry %q, role %v: %w", e.source, role, err)
+			}
+			m, err := sess.catalog.ByID(reply.Buttons[0].Action.MaterialID)
+			if err != nil {
+				return err
+			}
+			offers[role] = m.Title
 		}
 
 		label := "`" + e.source + "`"
 		if e.source == "" {
 			label = "без метки"
 		}
-		offered, err := s.catalog.ByID(reply.Buttons[0].Action.MaterialID)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(b, "| %s | %s | %s |\n", label, e.where, offered.Title)
+		fmt.Fprintf(b, "| %s | %s | %s | %s |\n", label, e.where, offers[funnel.RoleSolo], offers[funnel.RoleTeam])
 	}
 
 	b.WriteString("\nМетка попадает в каждое событие человека, поэтому путь ")
-	b.WriteString("«Reel → бот → статья» виден целиком.\n\n")
+	b.WriteString("«Reel → бот → статья» виден целиком. Если под ответ подходит ")
+	b.WriteString("ровно тот разбор, который человек только что читал на сайте, ")
+	b.WriteString("бот отдаёт второй.\n\n")
 	return nil
 }
 
@@ -111,18 +120,24 @@ func renderDialog(ctx context.Context, b *strings.Builder) error {
 	}
 	writeScreen(b, "1. Человек открыл бота", "`/start site_home`", start)
 
-	offered := start.Buttons[0].Action.MaterialID
+	qualified, _, err := s.qualify(ctx, funnel.RoleSolo)
+	if err != nil {
+		return err
+	}
+	writeScreen(b, "2. Ответил «"+start.Buttons[0].Label+"»", "кнопка `role:solo`", qualified)
+
+	offered := qualified.Buttons[0].Action.MaterialID
 	choose, _, err := s.choose(ctx, offered)
 	if err != nil {
 		return err
 	}
-	writeScreen(b, "2. Нажал «"+start.Buttons[0].Label+"»", "кнопка `take:"+offered+"`", choose)
+	writeScreen(b, "3. Нажал «"+qualified.Buttons[0].Label+"»", "кнопка `take:"+offered+"`", choose)
 
 	target, _, err := s.open(ctx, tokenFromButton(choose))
 	if err != nil {
 		return err
 	}
-	b.WriteString("### 3. Нажал «" + choose.Buttons[0].Label + "»\n\n")
+	b.WriteString("### 4. Нажал «" + choose.Buttons[0].Label + "»\n\n")
 	b.WriteString("Открывается статья на сайте:\n\n")
 	b.WriteString("```\n" + target + "\n```\n\n")
 	b.WriteString("Метка перехода нужна аналитике сайта: без неё человек из бота ")
@@ -133,9 +148,9 @@ func renderDialog(ctx context.Context, b *strings.Builder) error {
 	if err != nil {
 		return err
 	}
-	writeScreen(b, "4. Вместо этого нажал «"+start.Buttons[1].Label+"»", "кнопка `other:"+offered+"`", alt)
+	writeScreen(b, "5. Вместо этого нажал «"+qualified.Buttons[1].Label+"»", "кнопка `other:"+offered+"`", alt)
 
-	b.WriteString("Дальше всё повторяется: кнопка ведёт на тот же экран 2, ")
+	b.WriteString("Дальше всё повторяется: кнопка ведёт на тот же экран 3, ")
 	b.WriteString("только со вторым материалом.\n\n")
 	return nil
 }
@@ -155,13 +170,19 @@ func renderEvents(ctx context.Context, b *strings.Builder) error {
 	}
 	var steps []step
 
-	start, events, err := s.start(ctx, funnel.SourceSiteMethod6x5)
+	_, events, err := s.start(ctx, funnel.SourceSiteMethod6x5)
 	if err != nil {
 		return err
 	}
 	steps = append(steps, step{"открыл бота", events})
 
-	offered := start.Buttons[0].Action.MaterialID
+	qualified, events, err := s.qualify(ctx, funnel.RoleTeam)
+	if err != nil {
+		return err
+	}
+	steps = append(steps, step{"ответил про команду", events})
+
+	offered := qualified.Buttons[0].Action.MaterialID
 	choose, events, err := s.choose(ctx, offered)
 	if err != nil {
 		return err
@@ -196,7 +217,10 @@ func renderEdgeCases(ctx context.Context, b *strings.Builder) error {
 	if err != nil {
 		return err
 	}
-	broken, _, err := s.start(ctx, "разбор!")
+	if _, _, err := s.start(ctx, "разбор!"); err != nil {
+		return err
+	}
+	broken, _, err := s.qualify(ctx, funnel.RoleSolo)
 	if err != nil {
 		return err
 	}
@@ -205,7 +229,7 @@ func renderEdgeCases(ctx context.Context, b *strings.Builder) error {
 		return err
 	}
 	fmt.Fprintf(b,
-		"| Метка битая (`разбор!`) | Отдаёт «%s», метку не сохраняет, но кладёт сырое значение в событие — видно, что ссылка сломана |\n",
+		"| Метка битая (`разбор!`) | Спрашивает как обычно и отдаёт «%s». Метку не сохраняет, но кладёт сырое значение в событие — видно, что ссылка сломана |\n",
 		offered.Title)
 
 	// Повтор доставки: Telegram присылает тот же update второй раз.
@@ -219,6 +243,7 @@ func renderEdgeCases(ctx context.Context, b *strings.Builder) error {
 	fmt.Fprintf(b, "| Ссылка `/r/…` с чужим токеном | %s |\n", unknownTokenVerdict(err))
 
 	b.WriteString("| Нажата кнопка снятого материала | Гасит крутящийся индикатор и молчит: повторять такое бессмысленно |\n")
+	b.WriteString("| В кнопке чужая роль | То же самое: до воронки не доходит |\n")
 	b.WriteString("| Человек написал текст вместо кнопки | Пока молчит. Свободный текст станет входом в анализ Reel на тикете 09 |\n")
 	b.WriteString("\n")
 	return nil
@@ -259,6 +284,16 @@ func newSession() (*session, error) {
 	}
 	s.funnel = f
 	return s, nil
+}
+
+func (s *session) qualify(ctx context.Context, role funnel.Role) (funnel.Reply, []funnel.Event, error) {
+	s.update++
+	reply, err := s.funnel.Qualify(ctx, funnel.QualifyCommand{
+		UpdateID: s.update,
+		User:     s.user,
+		Role:     role,
+	})
+	return reply, s.fresh(), err
 }
 
 func (s *session) start(ctx context.Context, payload string) (funnel.Reply, []funnel.Event, error) {

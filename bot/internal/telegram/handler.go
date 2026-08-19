@@ -21,6 +21,7 @@ type Scenario interface {
 	Start(ctx context.Context, cmd funnel.StartCommand) (funnel.Reply, error)
 	Choose(ctx context.Context, cmd funnel.ChooseCommand) (funnel.Reply, error)
 	Alternative(ctx context.Context, cmd funnel.AlternativeCommand) (funnel.Reply, error)
+	Qualify(ctx context.Context, cmd funnel.QualifyCommand) (funnel.Reply, error)
 }
 
 // Sender — исходящая часть Bot API.
@@ -140,6 +141,12 @@ func (h *Handler) handleCallback(ctx context.Context, updateID int64, cb Callbac
 			UpdateID:          updateID,
 			User:              user,
 			CurrentMaterialID: action.MaterialID,
+		})
+	case funnel.ActionRole:
+		reply, err = h.scenario.Qualify(ctx, funnel.QualifyCommand{
+			UpdateID: updateID,
+			User:     user,
+			Role:     action.Role,
 		})
 	default:
 		return fmt.Errorf("unsupported action kind %d", action.Kind)

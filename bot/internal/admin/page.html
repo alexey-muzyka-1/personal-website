@@ -74,7 +74,7 @@
   <h2>Люди</h2>
   {{ if .Leads }}
   <table>
-    <tr><th>Кто</th><th>Пришёл</th><th>Откуда</th><th>Забрал</th></tr>
+    <tr><th>Кто</th><th>Пришёл</th><th>Откуда</th><th>Ведёт</th><th>Забрал</th></tr>
     {{ range .Leads }}
     <tr>
       <td>
@@ -83,6 +83,7 @@
       </td>
       <td class="num muted">{{ moscow .FirstSeen }}</td>
       <td>{{ if .Source }}<code>{{ .Source }}</code>{{ else }}<span class="muted">без метки</span>{{ end }}</td>
+      <td>{{ if .Role }}{{ role .Role }}{{ else }}<span class="muted">не ответил</span>{{ end }}</td>
       <td>
         {{ if .Materials }}<code>{{ .Materials }}</code>{{ else }}<span class="muted">ничего</span>{{ end }}
         {{ if .Opened }}<div class="muted">открыл</div>{{ end }}

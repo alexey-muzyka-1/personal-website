@@ -105,6 +105,15 @@ func (s *pgStore) SaveUser(ctx context.Context, u funnel.User, at time.Time) err
 	return nil
 }
 
+func (s *pgStore) SetUserRole(ctx context.Context, telegramID int64, role funnel.Role) error {
+	const query = `update users set role = $2 where telegram_id = $1`
+
+	if _, err := s.tx.Exec(ctx, query, telegramID, role.String()); err != nil {
+		return fmt.Errorf("saving role: %w", err)
+	}
+	return nil
+}
+
 func (s *pgStore) AppendAttribution(ctx context.Context, a funnel.Attribution) error {
 	const query = `
 		insert into attributions (telegram_id, source_id, raw_payload, occurred_at)

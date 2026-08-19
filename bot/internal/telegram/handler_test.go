@@ -21,8 +21,14 @@ type fakeScenario struct {
 	starts       []funnel.StartCommand
 	chooses      []funnel.ChooseCommand
 	alternatives []funnel.AlternativeCommand
+	qualifies    []funnel.QualifyCommand
 	reply        funnel.Reply
 	err          error
+}
+
+func (f *fakeScenario) Qualify(_ context.Context, cmd funnel.QualifyCommand) (funnel.Reply, error) {
+	f.qualifies = append(f.qualifies, cmd)
+	return f.reply, f.err
 }
 
 func (f *fakeScenario) Start(_ context.Context, cmd funnel.StartCommand) (funnel.Reply, error) {
@@ -41,7 +47,7 @@ func (f *fakeScenario) Alternative(_ context.Context, cmd funnel.AlternativeComm
 }
 
 func (f *fakeScenario) calls() int {
-	return len(f.starts) + len(f.chooses) + len(f.alternatives)
+	return len(f.starts) + len(f.chooses) + len(f.alternatives) + len(f.qualifies)
 }
 
 // routedMaterial — материал, до которого доехала команда, независимо от
@@ -354,5 +360,60 @@ func TestCallbackToRemovedMaterialIsNotRetried(t *testing.T) {
 	}
 	if len(sender.sent) != 0 {
 		t.Error("nothing to say about a removed material")
+	}
+}
+
+// Ответ на вопрос про команду доезжает до сценария и гасит индикатор.
+func TestRoleCallbackReachesFunnel(t *testing.T) {
+	tests := map[string]struct {
+		data string
+		want funnel.Role
+	}{
+		"сам":        {data: "role:solo", want: funnel.RoleSolo},
+		"с командой": {data: "role:team", want: funnel.RoleTeam},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			scenario := &fakeScenario{reply: funnel.Reply{Text: "ответ"}}
+			sender := &fakeSender{}
+			h := newHandler(t, scenario, sender)
+
+			body := `{"update_id":21,"callback_query":{"id":"cb-9","from":{"id":55},"data":"` + tc.data +
+				`","message":{"chat":{"id":99}}}}`
+			rec := post(t, h, testSecret, body)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("code = %d, want 200", rec.Code)
+			}
+			if len(scenario.qualifies) != 1 {
+				t.Fatalf("Qualify calls = %d, want 1", len(scenario.qualifies))
+			}
+			if got := scenario.qualifies[0].Role; got != tc.want {
+				t.Errorf("role = %v, want %v", got, tc.want)
+			}
+			if len(sender.answered) != 1 || len(sender.sent) != 1 {
+				t.Errorf("want one answer and one message, got %d и %d", len(sender.answered), len(sender.sent))
+			}
+		})
+	}
+}
+
+// Чужая роль в callback — устаревшая или подделанная кнопка.
+func TestUnknownRoleIsDropped(t *testing.T) {
+	scenario, sender := &fakeScenario{}, &fakeSender{}
+	h := newHandler(t, scenario, sender)
+
+	body := `{"update_id":22,"callback_query":{"id":"cb-10","from":{"id":55},"data":"role:boss","message":{"chat":{"id":99}}}}`
+	rec := post(t, h, testSecret, body)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("code = %d, want 200", rec.Code)
+	}
+	if scenario.calls() != 0 {
+		t.Error("unknown role must not reach the funnel")
+	}
+	if len(sender.answered) != 1 {
+		t.Error("spinner must be stopped")
 	}
 }
