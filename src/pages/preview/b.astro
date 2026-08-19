@@ -1,0 +1,134 @@
+---
+// ВАРИАНТ Б — «издание».
+//
+// Продаёт так: не «парень с продуктом», а автор, которого читают. Крупная
+// серифная типографика, широкий разворот, статья работает обложкой номера.
+// Бумага остаётся, но перестаёт быть тихой: масштаб делает её дорогой.
+//
+// Это превью, оно не подключено к сайту.
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Б · издание</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --fg: #1f1d1a;
+    --muted: #6b665c;
+    --line: #ddd8cc;
+    --ink: #1f1d1a;
+    --serif: 'Lora', Georgia, serif;
+    --sans: 'Inter', -apple-system, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 32px 90px; }
+
+  .masthead {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+    padding: 26px 0 20px; border-bottom: 2px solid var(--ink);
+  }
+  .masthead b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; letter-spacing: .02em; }
+  .masthead nav { display: flex; gap: 22px; font-size: .82rem; }
+  .masthead a { color: var(--muted); text-decoration: none; }
+  .masthead a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Первый экран — разворот: слева заявление, справа кто это говорит. */
+  .spread { display: grid; grid-template-columns: 1.55fr 1fr; gap: 56px; padding: 64px 0 56px; border-bottom: 1px solid var(--line); }
+  .kicker { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 20px; }
+  h1 {
+    font-family: var(--serif); font-weight: 500;
+    font-size: clamp(2.6rem, 6.4vw, 4.6rem); line-height: 1.02;
+    letter-spacing: -.02em; margin: 0 0 24px; text-wrap: balance;
+  }
+  h1 i { font-style: italic; }
+  .stand { font-size: 1.16rem; line-height: 1.55; color: var(--fg); max-width: 40ch; margin: 0 0 30px; }
+  .go { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .go .primary {
+    display: inline-flex; align-items: center; min-height: 50px; padding: 0 26px;
+    background: var(--ink); color: var(--bg); text-decoration: none;
+    font-size: .96rem; font-weight: 500;
+  }
+  .go .primary:hover { background: #3a352d; }
+  .go .plain { font-size: .94rem; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+  .card { border-left: 1px solid var(--line); padding-left: 32px; }
+  .card img { width: 96px; height: 96px; border-radius: 2px; display: block; margin: 0 0 16px; object-fit: cover; filter: grayscale(1) contrast(1.05); }
+  .card p { font-size: .94rem; color: var(--muted); margin: 0 0 14px; }
+  .card dl { margin: 20px 0 0; font-size: .84rem; }
+  .card dt { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 3px; }
+  .card dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  /* Главный материал как обложка номера. */
+  .lead { padding: 56px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .lead .no { font-family: var(--mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+  .lead h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(1.7rem, 3vw, 2.5rem); line-height: 1.12; margin: 0 0 16px; text-wrap: balance; }
+  .lead p { color: var(--muted); margin: 0 0 20px; }
+  .lead .figs { display: flex; gap: 28px; font-family: var(--mono); font-size: .78rem; font-variant-numeric: tabular-nums; }
+  .lead .figs b { display: block; font-size: 1.5rem; font-weight: 500; font-family: var(--serif); }
+  .lead .figs span { color: var(--muted); }
+  .shot { width: 100%; border: 1px solid var(--line); display: block; }
+
+  @media (max-width: 860px) {
+    .spread, .lead { grid-template-columns: 1fr; gap: 34px; }
+    .card { border-left: 0; border-top: 1px solid var(--line); padding: 26px 0 0; }
+    .masthead nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <b>Лёша Музыка</b>
+    <nav><a href="#">Статьи</a><a href="#">Инструменты</a><a href="#">Книги</a></nav>
+  </div>
+
+  <div class="spread">
+    <div>
+      <p class="kicker">Системы, а не советы</p>
+      <h1>Строю AI-продукты и <i>разбираю</i> их до последнего винта</h1>
+      <p class="stand">
+        Каждый разбор — то, что уже работает у меня каждый день. Целиком,
+        со скриншотами и цифрами. Без подписки и без почты.
+      </p>
+      <div class="go">
+        <a class="primary" href="#">Забрать разборы в Telegram →</a>
+        <a class="plain" href="#">Читать на сайте</a>
+      </div>
+    </div>
+
+    <aside class="card">
+      <img src={`${base}me.jpg`} alt="Лёша Музыка" width="96" height="96" />
+      <p>Основатель Viralmaxing. Веду контент на объёме и собираю агентов, которые это держат.</p>
+      <dl>
+        <dt>последний разбор</dt><dd>14 августа 2026</dd>
+        <dt>выложено целиком</dt><dd>3 системы</dd>
+      </dl>
+    </aside>
+  </div>
+
+  <div class="lead">
+    <div>
+      <p class="no">Главный материал</p>
+      <h2>Как мы разогнали аккаунты до 50 млн просмотров в месяц</h2>
+      <p>Аватар, скрипт, продакшн и аналитика, по которой мы каждый день решаем, что дожимать.</p>
+      <div class="figs">
+        <div><b>49,7 млн</b><span>просмотров</span></div>
+        <div><b>1318</b><span>публикаций</span></div>
+        <div><b>30</b><span>дней</span></div>
+      </div>
+    </div>
+    <img class="shot" src={`${base}blueprint/thumb.png`} alt="Дашборд аналитики" width="360" height="328" />
+  </div>
+</div>
+</body>
+</html>
