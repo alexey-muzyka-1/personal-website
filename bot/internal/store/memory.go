@@ -71,17 +71,17 @@ func (m *Memory) User(telegramID int64) (u funnel.User, firstSeen, lastSeen time
 	return stored.user, stored.firstSeen, stored.lastSeen, ok
 }
 
-// Role — сохранённый ответ про команду.
-func (m *Memory) Role(telegramID int64) funnel.Role {
+// Stage — сохранённое состояние человека.
+func (m *Memory) Stage(telegramID int64) funnel.Stage {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.data.users[telegramID].role
+	return m.data.users[telegramID].stage
 }
 
 type storedUser struct {
 	user      funnel.User
-	role      funnel.Role
+	stage     funnel.Stage
 	firstSeen time.Time
 	lastSeen  time.Time
 }
@@ -144,11 +144,24 @@ func (s *memoryStore) SaveUser(_ context.Context, u funnel.User, at time.Time) e
 	return nil
 }
 
-func (s *memoryStore) SetUserRole(_ context.Context, telegramID int64, role funnel.Role) error {
+func (s *memoryStore) SetUserStage(_ context.Context, telegramID int64, stage funnel.Stage) error {
 	stored := s.data.users[telegramID]
-	stored.role = role
+	stored.stage = stage
 	s.data.users[telegramID] = stored
 	return nil
+}
+
+func (s *memoryStore) UserStage(_ context.Context, telegramID int64) (funnel.Stage, error) {
+	return s.data.users[telegramID].stage, nil
+}
+
+func (s *memoryStore) HasEvent(_ context.Context, telegramID int64, name string) (bool, error) {
+	for _, e := range s.data.events {
+		if e.TelegramID == telegramID && e.Name == name {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *memoryStore) AppendAttribution(_ context.Context, a funnel.Attribution) error {

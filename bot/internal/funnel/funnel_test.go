@@ -84,19 +84,16 @@ func TestStartRecordsUserSourceAndAsksTheQuestion(t *testing.T) {
 	if reply.Skip {
 		t.Fatal("first start must produce a reply")
 	}
-	// Первым делом бот задаёт один вопрос, а не суёт материал: ответ
-	// решает, какой разбор подойдёт, и нужен потом для продукта.
-	if !strings.Contains(reply.Text, "сам или с командой") {
-		t.Errorf("reply must ask the question, got:\n%s", reply.Text)
+	// Материал выдаётся сразу: вопрос про состояние приходит потом, когда
+	// человек уже что-то получил.
+	if !strings.Contains(reply.Text, "Метод 6 × 5") {
+		t.Errorf("reply must offer the material, got:\n%s", reply.Text)
 	}
 	if len(reply.Buttons) != 2 {
-		t.Fatalf("want two answers, got %d", len(reply.Buttons))
+		t.Fatalf("want link + escape, got %d", len(reply.Buttons))
 	}
-	if got := reply.Buttons[0].Action; got.Kind != funnel.ActionRole || got.Role != funnel.RoleSolo {
-		t.Errorf("first button must answer «сам», got %+v", got)
-	}
-	if got := reply.Buttons[1].Action; got.Kind != funnel.ActionRole || got.Role != funnel.RoleTeam {
-		t.Errorf("second button must answer «с командой», got %+v", got)
+	if reply.Buttons[0].URL == "" {
+		t.Error("first button must be the tracked link")
 	}
 
 	started := findEvent(t, mem, funnel.EventBotStarted)
@@ -142,12 +139,15 @@ func TestStartKeepsFirstTouchAndFollowsLastTouch(t *testing.T) {
 	}
 
 	// Выдача относится к свежему источнику, а не к первому.
-	qualify := funnel.QualifyCommand{UpdateID: 4, User: testUser, Role: funnel.RoleSolo}
-	if _, err := f.Qualify(ctx, qualify); err != nil {
-		t.Fatalf("Qualify: %v", err)
+	// Второй /start выдаёт разбор уже под свежий источник.
+	var last funnel.Event
+	for _, e := range mem.Events() {
+		if e.Name == funnel.EventMaterialSelected {
+			last = e
+		}
 	}
-	if got := findEvent(t, mem, funnel.EventMaterialSelected).SourceID; got != "reel_second" {
-		t.Errorf("material_selected source = %q, want reel_second", got)
+	if last.SourceID != "reel_second" {
+		t.Errorf("material_selected source = %q, want reel_second", last.SourceID)
 	}
 }
 
@@ -203,30 +203,26 @@ func TestDuplicateUpdateIsIgnored(t *testing.T) {
 	if !reply.Skip {
 		t.Error("repeated update must not produce a second message")
 	}
-	if got := len(mem.Events()); got != 1 {
-		t.Errorf("events = %d, want 1: %v", got, eventNames(mem.Events()))
+	// Один /start пишет два события: запуск и выданный разбор.
+	if got := len(mem.Events()); got != 2 {
+		t.Errorf("events = %d, want 2: %v", got, eventNames(mem.Events()))
 	}
 	if got := len(mem.Attributions(testUser.TelegramID)); got != 1 {
 		t.Errorf("attributions = %d, want 1", got)
 	}
 }
 
-func TestChooseGivesTrackedLinkAndOpenRecordsClick(t *testing.T) {
+func TestStartGivesTrackedLinkAndOpenRecordsClick(t *testing.T) {
 	f, mem := newMemoryFunnel(t)
 	ctx := context.Background()
 
 	start := funnel.StartCommand{UpdateID: 1, User: testUser, Payload: "reel_x"}
-	if _, err := f.Start(ctx, start); err != nil {
+	reply, err := f.Start(ctx, start)
+	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 
-	reply, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: funnel.RoleTeam})
-	if err != nil {
-		t.Fatalf("Qualify: %v", err)
-	}
-
-	// Ссылка выдаётся сразу вместе с рекомендацией: лишней кнопки
-	// «Забрать» между ними больше нет.
+	// Ссылка выдаётся сразу вместе с рекомендацией.
 	if len(reply.Buttons) != 2 {
 		t.Fatalf("want link + escape, got %d", len(reply.Buttons))
 	}
@@ -240,25 +236,37 @@ func TestChooseGivesTrackedLinkAndOpenRecordsClick(t *testing.T) {
 		t.Errorf("reply must not leak a direct article link:\n%s", reply.Text)
 	}
 
-	target, err := f.Open(ctx, "token-1")
+	opened, err := f.Open(ctx, "token-1")
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	// Переход должен приходить на сайт с меткой: иначе в аналитике он
 	// попадёт в direct и станет неотличим от прямого захода.
-	want := siteBase + "/articles/blueprint-50m?utm_campaign=reel_x&utm_medium=bot&utm_source=telegram"
-	if target != want {
-		t.Errorf("target = %q, want %q", target, want)
+	want := siteBase + "/articles/metod-6x5?utm_campaign=reel_x&utm_medium=bot&utm_source=telegram"
+	if opened.Target != want {
+		t.Errorf("target = %q, want %q", opened.Target, want)
+	}
+	// Ровно после первого открытия человеку прилетает вопрос о состоянии.
+	if opened.FollowUp == nil {
+		t.Fatal("want the stage question after the first open")
+	}
+	if len(opened.FollowUp.Buttons) != 3 {
+		t.Errorf("want three answers, got %d", len(opened.FollowUp.Buttons))
 	}
 
-	opened := findEvent(t, mem, funnel.EventMaterialOpened)
-	if opened.SourceID != "reel_x" || opened.MaterialID != funnel.MaterialBlueprint50 {
-		t.Errorf("material_opened lost context: %+v", opened)
+	event := findEvent(t, mem, funnel.EventMaterialOpened)
+	if event.SourceID != "reel_x" || event.MaterialID != funnel.MaterialMethod6x5 {
+		t.Errorf("material_opened lost context: %+v", event)
 	}
 
 	// Повторное открытие — реальный повторный интерес, а не дубль update.
-	if _, err := f.Open(ctx, "token-1"); err != nil {
+	// Но вопрос второй раз не задаётся.
+	again, err := f.Open(ctx, "token-1")
+	if err != nil {
 		t.Fatalf("second Open: %v", err)
+	}
+	if again.FollowUp != nil {
+		t.Error("the question must be asked once")
 	}
 	var opens int
 	for _, name := range eventNames(mem.Events()) {
@@ -402,72 +410,6 @@ func TestNewRejectsBrokenConfig(t *testing.T) {
 	}
 }
 
-// Ответ на вопрос решает, какой разбор человек получит. Отдельно
-// проверяем поправку: если под его роль подходит ровно то, что он только
-// что прочитал на сайте, бот отдаёт второй разбор.
-func TestRoleAndSourceDecideTheMaterial(t *testing.T) {
-	tests := map[string]struct {
-		source    string
-		role      funnel.Role
-		wantOffer string
-	}{
-		"сам, без источника":        {source: "", role: funnel.RoleSolo, wantOffer: funnel.MaterialMethod6x5},
-		"с командой, без источника": {source: "", role: funnel.RoleTeam, wantOffer: funnel.MaterialBlueprint50},
-		"сам, но метод уже прочитан": {
-			source: funnel.SourceSiteMethod6x5, role: funnel.RoleSolo, wantOffer: funnel.MaterialBlueprint50,
-		},
-		"с командой, но блупринт уже прочитан": {
-			source: funnel.SourceSiteBlueprint50, role: funnel.RoleTeam, wantOffer: funnel.MaterialMethod6x5,
-		},
-		"с командой, пришёл из метода": {
-			source: funnel.SourceSiteMethod6x5, role: funnel.RoleTeam, wantOffer: funnel.MaterialBlueprint50,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			f, mem := newMemoryFunnel(t)
-			ctx := context.Background()
-
-			start := funnel.StartCommand{UpdateID: 1, User: testUser, Payload: tc.source}
-			if _, err := f.Start(ctx, start); err != nil {
-				t.Fatalf("Start: %v", err)
-			}
-
-			reply, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: tc.role})
-			if err != nil {
-				t.Fatalf("Qualify: %v", err)
-			}
-			// Первая кнопка — ссылка, материал несёт вторая.
-			if got := reply.Buttons[1].Action.MaterialID; got != tc.wantOffer {
-				t.Errorf("offer = %q, want %q", got, tc.wantOffer)
-			}
-			if got := mem.Role(testUser.TelegramID); got != tc.role {
-				t.Errorf("role saved = %v, want %v", got, tc.role)
-			}
-			answered := findEvent(t, mem, funnel.EventRoleAnswered)
-			if got := answered.Metadata["role"]; got != tc.role.String() {
-				t.Errorf("event role = %q, want %q", got, tc.role.String())
-			}
-		})
-	}
-}
-
-// Роль без ответа — программная ошибка, а не состояние человека.
-func TestQualifyWithoutRoleFails(t *testing.T) {
-	f, mem := newMemoryFunnel(t)
-
-	cmd := funnel.QualifyCommand{UpdateID: 1, User: testUser, Role: funnel.RoleUnknown}
-	if _, err := f.Qualify(context.Background(), cmd); err == nil {
-		t.Fatal("want error, got nil")
-	}
-	if got := len(mem.Events()); got != 0 {
-		t.Errorf("failed qualify must not write events, got %v", eventNames(mem.Events()))
-	}
-}
-
-// Без источника метка перехода всё равно должна быть: иначе такие люди
-// молча сливаются в direct и исчезают из отчёта.
 func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 	f, _ := newMemoryFunnel(t)
 	ctx := context.Background()
@@ -475,18 +417,14 @@ func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser}); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if _, err := f.Qualify(ctx, funnel.QualifyCommand{UpdateID: 2, User: testUser, Role: funnel.RoleSolo}); err != nil {
-		t.Fatalf("Qualify: %v", err)
-	}
-
-	target, err := f.Open(ctx, "token-1")
+	opened, err := f.Open(ctx, "token-1")
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	if !strings.Contains(target, "utm_campaign=direct") {
-		t.Errorf("target = %q, want utm_campaign=direct", target)
+	if !strings.Contains(opened.Target, "utm_campaign=direct") {
+		t.Errorf("target = %q, want utm_campaign=direct", opened.Target)
 	}
-	if !strings.Contains(target, "utm_medium=bot") {
-		t.Errorf("target = %q, want utm_medium=bot", target)
+	if !strings.Contains(opened.Target, "utm_medium=bot") {
+		t.Errorf("target = %q, want utm_medium=bot", opened.Target)
 	}
 }

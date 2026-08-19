@@ -17,46 +17,57 @@ import "time"
 // должна переводить названия из кода в стратегию и обратно.
 const (
 	EventBotStarted       = "bot_started"
-	EventRoleAnswered     = "role_answered"
 	EventMaterialSelected = "material_selected"
 	EventMaterialOpened   = "material_opened"
 	EventAlternativeAsked = "alternative_asked"
+	EventStageAnswered    = "stage_answered"
+	EventOfferShown       = "offer_shown"
 )
 
-// Role — ответ на единственный вопрос, который бот задаёт: человек ведёт
-// контент сам или с командой.
+// Stage — состояние контент-системы человека, а не то, кто он вообще.
 //
-// Это не анкета. Ответ решает, какой разбор отдать первым, и он же
-// понадобится позже: одиночке и команде нужны разные продукты. Ноль —
-// «не спрашивали», чтобы забытый ответ нельзя было принять за «сам».
-type Role int
+// Вопрос задаётся после того, как человек получил разбор: до этого
+// спрашивать не за что. У каждого состояния ровно один следующий шаг,
+// и офферы не показываются одновременно.
+//
+// Ноль — «не спрашивали». Забытый ответ не должен сойти за состояние.
+type Stage int
 
 const (
-	RoleUnknown Role = iota
-	RoleSolo
-	RoleTeam
+	StageUnknown Stage = iota
+	// StageNotShipping — не получается выпускать стабильно.
+	StageNotShipping
+	// StageNoSignal — контент выходит, но непонятно, что работает.
+	StageNoSignal
+	// StageOther — «другая ситуация». Не тупик: дальше один уточняющий
+	// вопрос, который возвращает человека в одно из двух состояний.
+	StageOther
 )
 
 // String — то, что уезжает в базу и в отчёты.
-func (r Role) String() string {
-	switch r {
-	case RoleSolo:
-		return "solo"
-	case RoleTeam:
-		return "team"
+func (s Stage) String() string {
+	switch s {
+	case StageNotShipping:
+		return "not_shipping"
+	case StageNoSignal:
+		return "no_signal"
+	case StageOther:
+		return "other"
 	default:
 		return ""
 	}
 }
 
-func ParseRole(s string) (Role, bool) {
+func ParseStage(s string) (Stage, bool) {
 	switch s {
-	case "solo":
-		return RoleSolo, true
-	case "team":
-		return RoleTeam, true
+	case "not_shipping":
+		return StageNotShipping, true
+	case "no_signal":
+		return StageNoSignal, true
+	case "other":
+		return StageOther, true
 	default:
-		return RoleUnknown, false
+		return StageUnknown, false
 	}
 }
 
@@ -131,13 +142,14 @@ type Button struct {
 type ActionKind int
 
 const (
-	ActionNone  ActionKind = iota // нулевое значение = кнопка-ссылка
-	ActionOther                   // «мне это не подходит»
-	ActionRole                    // ответ на вопрос про команду
+	ActionNone     ActionKind = iota // нулевое значение = кнопка-ссылка
+	ActionOther                      // «мне это не подходит»
+	ActionStage                      // ответ про состояние контент-системы
+	ActionWaitlist                   // «записать меня» на будущий эфир
 )
 
 type Action struct {
 	Kind       ActionKind
 	MaterialID string
-	Role       Role
+	Stage      Stage
 }

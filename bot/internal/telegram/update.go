@@ -70,16 +70,19 @@ func startPayload(text string) (payload string, ok bool) {
 // Действия кодируются в callback_data как «take:metod-6x5». Лимит
 // Telegram — 64 байта, идентификаторы материалов короткие.
 const (
-	actionOther = "other"
-	actionRole  = "role"
+	actionOther    = "other"
+	actionStage    = "stage"
+	actionWaitlist = "waitlist"
 )
 
 func encodeAction(a funnel.Action) (string, error) {
 	switch a.Kind {
 	case funnel.ActionOther:
 		return actionOther + ":" + a.MaterialID, nil
-	case funnel.ActionRole:
-		return actionRole + ":" + a.Role.String(), nil
+	case funnel.ActionStage:
+		return actionStage + ":" + a.Stage.String(), nil
+	case funnel.ActionWaitlist:
+		return actionWaitlist + ":me", nil
 	case funnel.ActionNone:
 		return "", fmt.Errorf("button without action and without url")
 	default:
@@ -96,12 +99,14 @@ func decodeAction(data string) (funnel.Action, error) {
 	switch kind {
 	case actionOther:
 		return funnel.Action{Kind: funnel.ActionOther, MaterialID: value}, nil
-	case actionRole:
-		role, ok := funnel.ParseRole(value)
+	case actionStage:
+		stage, ok := funnel.ParseStage(value)
 		if !ok {
-			return funnel.Action{}, fmt.Errorf("unknown role %q", value)
+			return funnel.Action{}, fmt.Errorf("unknown stage %q", value)
 		}
-		return funnel.Action{Kind: funnel.ActionRole, Role: role}, nil
+		return funnel.Action{Kind: funnel.ActionStage, Stage: stage}, nil
+	case actionWaitlist:
+		return funnel.Action{Kind: funnel.ActionWaitlist}, nil
 	default:
 		return funnel.Action{}, fmt.Errorf("unknown callback action %q", kind)
 	}

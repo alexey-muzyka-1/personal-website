@@ -20,13 +20,19 @@ const testSecret = "s3cret"
 type fakeScenario struct {
 	starts       []funnel.StartCommand
 	alternatives []funnel.AlternativeCommand
-	qualifies    []funnel.QualifyCommand
+	stages       []funnel.StageCommand
+	waitlists    []funnel.JoinWaitlistCommand
 	reply        funnel.Reply
 	err          error
 }
 
-func (f *fakeScenario) Qualify(_ context.Context, cmd funnel.QualifyCommand) (funnel.Reply, error) {
-	f.qualifies = append(f.qualifies, cmd)
+func (f *fakeScenario) AnswerStage(_ context.Context, cmd funnel.StageCommand) (funnel.Reply, error) {
+	f.stages = append(f.stages, cmd)
+	return f.reply, f.err
+}
+
+func (f *fakeScenario) JoinWaitlist(_ context.Context, cmd funnel.JoinWaitlistCommand) (funnel.Reply, error) {
+	f.waitlists = append(f.waitlists, cmd)
 	return f.reply, f.err
 }
 
@@ -41,7 +47,7 @@ func (f *fakeScenario) Alternative(_ context.Context, cmd funnel.AlternativeComm
 }
 
 func (f *fakeScenario) calls() int {
-	return len(f.starts) + len(f.alternatives) + len(f.qualifies)
+	return len(f.starts) + len(f.alternatives) + len(f.stages) + len(f.waitlists)
 }
 
 type sentMessage struct {
@@ -232,7 +238,7 @@ func TestCallbackReplacesTheMessage(t *testing.T) {
 	sender := &fakeSender{}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":12,"callback_query":{"id":"cb-2","from":{"id":55},"data":"role:solo","message":{"message_id":777,"chat":{"id":99}}}}`
+	body := `{"update_id":12,"callback_query":{"id":"cb-2","from":{"id":55},"data":"stage:not_shipping","message":{"message_id":777,"chat":{"id":99}}}}`
 	post(t, h, testSecret, body)
 
 	if len(sender.edited) != 1 {
@@ -253,7 +259,7 @@ func TestFailedEditFallsBackToNewMessage(t *testing.T) {
 	sender := &fakeSender{editErr: errors.New("message is too old")}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":13,"callback_query":{"id":"cb-3","from":{"id":55},"data":"role:team","message":{"message_id":777,"chat":{"id":99}}}}`
+	body := `{"update_id":13,"callback_query":{"id":"cb-3","from":{"id":55},"data":"stage:no_signal","message":{"message_id":777,"chat":{"id":99}}}}`
 	rec := post(t, h, testSecret, body)
 
 	if rec.Code != http.StatusOK {
@@ -269,7 +275,7 @@ func TestCallbackWithoutMessageFallsBackToPrivateChat(t *testing.T) {
 	sender := &fakeSender{}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":14,"callback_query":{"id":"cb-4","from":{"id":55},"data":"role:solo"}}`
+	body := `{"update_id":14,"callback_query":{"id":"cb-4","from":{"id":55},"data":"stage:not_shipping"}}`
 	post(t, h, testSecret, body)
 
 	if len(sender.sent) != 1 || sender.sent[0].chatID != 55 {
@@ -378,14 +384,15 @@ func TestCallbackToRemovedMaterialIsNotRetried(t *testing.T) {
 	}
 }
 
-// Ответ на вопрос про команду доезжает до сценария и гасит индикатор.
-func TestRoleCallbackReachesFunnel(t *testing.T) {
+// Ответ про состояние доезжает до сценария и гасит индикатор.
+func TestStageCallbackReachesFunnel(t *testing.T) {
 	tests := map[string]struct {
 		data string
-		want funnel.Role
+		want funnel.Stage
 	}{
-		"сам":        {data: "role:solo", want: funnel.RoleSolo},
-		"с командой": {data: "role:team", want: funnel.RoleTeam},
+		"не выпускает": {data: "stage:not_shipping", want: funnel.StageNotShipping},
+		"нет сигнала":  {data: "stage:no_signal", want: funnel.StageNoSignal},
+		"другая":       {data: "stage:other", want: funnel.StageOther},
 	}
 
 	for name, tc := range tests {
@@ -401,11 +408,11 @@ func TestRoleCallbackReachesFunnel(t *testing.T) {
 			if rec.Code != http.StatusOK {
 				t.Fatalf("code = %d, want 200", rec.Code)
 			}
-			if len(scenario.qualifies) != 1 {
-				t.Fatalf("Qualify calls = %d, want 1", len(scenario.qualifies))
+			if len(scenario.stages) != 1 {
+				t.Fatalf("AnswerStage calls = %d, want 1", len(scenario.stages))
 			}
-			if got := scenario.qualifies[0].Role; got != tc.want {
-				t.Errorf("role = %v, want %v", got, tc.want)
+			if got := scenario.stages[0].Stage; got != tc.want {
+				t.Errorf("stage = %v, want %v", got, tc.want)
 			}
 			if len(sender.answered) != 1 || len(sender.sent) != 1 {
 				t.Errorf("want one answer and one message, got %d и %d", len(sender.answered), len(sender.sent))
@@ -414,12 +421,12 @@ func TestRoleCallbackReachesFunnel(t *testing.T) {
 	}
 }
 
-// Чужая роль в callback — устаревшая или подделанная кнопка.
-func TestUnknownRoleIsDropped(t *testing.T) {
+// Чужое состояние в callback — устаревшая или подделанная кнопка.
+func TestUnknownStageIsDropped(t *testing.T) {
 	scenario, sender := &fakeScenario{}, &fakeSender{}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":22,"callback_query":{"id":"cb-10","from":{"id":55},"data":"role:boss","message":{"chat":{"id":99}}}}`
+	body := `{"update_id":22,"callback_query":{"id":"cb-10","from":{"id":55},"data":"stage:boss","message":{"chat":{"id":99}}}}`
 	rec := post(t, h, testSecret, body)
 
 	if rec.Code != http.StatusOK {
