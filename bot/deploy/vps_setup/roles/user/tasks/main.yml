@@ -1,0 +1,8 @@
+---
+-   name: Create deploy user
+    user:
+        name: "{{ deploy_user }}"
+        password: '!'
+        groups:
+            - docker
+        state: present

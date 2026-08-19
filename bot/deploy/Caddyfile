@@ -1,0 +1,24 @@
+# Сертификаты Caddy получает и продлевает сам. Требование не наше:
+# Telegram шлёт webhook только по HTTPS, платёжка потом тоже.
+
+{$BOT_DOMAIN} {
+	encode zstd gzip
+
+	# Наружу открыты только три пути. Всё остальное отвечает 404 и не
+	# доходит до бота: незачем светить то, чего нет.
+	@known path /telegram/webhook /r/* /healthz
+	handle @known {
+		reverse_proxy bot:8080
+	}
+
+	handle {
+		respond "not found" 404
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

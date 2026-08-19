@@ -1,0 +1,28 @@
+---
+# Наружу открыты только ssh и веб. Порт Postgres не публикуется вообще:
+# до базы можно дойти только с самой машины.
+-   name: Install ufw
+    apt:
+        name: ufw
+        state: present
+
+-   name: Allow ssh
+    community.general.ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+-   name: Allow http and https
+    community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+    loop:
+        - '80'
+        - '443'
+
+-   name: Deny everything else incoming
+    community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming

@@ -5,6 +5,8 @@ import Callout from '../../components/article/Callout.astro';
 import Comparison from '../../components/article/Comparison.astro';
 import Checks from '../../components/article/Checks.astro';
 import InlineCta from '../../components/article/InlineCta.astro';
+import BotCta from '../../components/article/BotCta.astro';
+import { FUNNEL_SOURCE } from '../../data/funnel';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const vmCampaign = 'blueprint';
@@ -1000,5 +1002,12 @@ const schema = {
         Свои аккаунты и 1322 конкурента мы смотрим в <a href={vm}>Viralmaxing</a>. Это наш
         продукт, и он вырос из этой задачи.
       </p>
+
+      <BotCta
+        source={FUNNEL_SOURCE.blueprint50}
+        title="Дальше — контент-план на месяц за полчаса"
+        text="Метод 6 × 5: шесть тем на пять форматов и тридцать сценариев из того, что уже собирает просмотры в вашей нише."
+        action="Забрать в Telegram →"
+      />
   </Fragment>
 </Article>

@@ -1,0 +1,12 @@
+---
+# Подготовка машины под воронку. Postgres здесь нет намеренно: он
+# поднимается контейнером в том же compose, что и бот, — одна машина,
+# один файл, ничего лишнего на хосте.
+-   name: Rise and Shine!
+    hosts: production
+    remote_user: root
+    roles:
+        - docker
+        - swap
+        - user
+        - firewall

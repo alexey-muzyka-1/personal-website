@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import { SITE } from '../config';
 import { homeTools } from '../data/tools';
 import { featuredArticle } from '../data/articles';
+import { botHref, FUNNEL_SOURCE } from '../data/funnel';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -12,6 +13,12 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const tgHref = SITE.telegramChannel || SITE.telegram;
 const tgIsChannel = Boolean(SITE.telegramChannel);
 const tgCount = tgIsChannel && SITE.telegramSubscribers ? SITE.telegramSubscribers : 0;
+
+// Бот, когда он есть, забирает главный выход в телеграм: он помнит, из
+// какого места сайта пришёл человек, и сам предлагает следующий шаг.
+// Чат остаётся в футере, гейта нет — всё на сайте открыто и без бота.
+const botHome = botHref(FUNNEL_SOURCE.home);
+const tgLabel = tgIsChannel ? 'Читать канал' : 'Зайти в чат';
 
 // Разметка для поиска: кто я и что за приложение.
 // Person — сущность сайта, SoftwareApplication — единственный публичный
@@ -138,15 +145,20 @@ const schema = [
 
   <section class="block section-major">
     <h2 class="section-h">Telegram</h2>
-    <div class="tg">
+    <div class="tg" data-cta="home-telegram">
       <div class="tg-text">
         <p>
           Пишу про продукты, агентов и находки — то, что не помещается в статью
           и появляется раньше, чем инструмент доедет до этого сайта.
         </p>
+        {botHome && (
+          <p class="tg-note">Бот отдаёт разборы целиком и подсказывает, с чего начать.</p>
+        )}
         {tgCount > 0 && <p class="tg-count">{tgCount} подписчиков</p>}
       </div>
-      <a class="btn-open" href={tgHref}>{tgIsChannel ? 'Читать канал' : 'Зайти в чат'} ↗</a>
+      <a class="btn-open" href={botHome ?? tgHref}>
+        {botHome ? 'Забрать разборы' : tgLabel} ↗
+      </a>
     </div>
   </section>
 
@@ -227,6 +239,11 @@ const schema = [
     border-radius: 14px;
   }
   .tg-text p { margin: 0; }
+  .tg-note {
+    margin-top: 8px !important;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
   .tg-count {
     margin-top: 6px !important;
     color: var(--muted);
