@@ -184,6 +184,17 @@ func (c Catalog) ByID(id string) (Material, error) {
 	return m, nil
 }
 
+// Routes — копия таблицы «метка источника → материал». Нужна карте бота,
+// чтобы маршруты можно было прочитать глазами, а не вычитывать из кода.
+func (c Catalog) Routes() map[string]string {
+	return maps.Clone(c.routes)
+}
+
+// Fallback — материал, который получают все, у кого нет своего маршрута.
+func (c Catalog) Fallback() Material {
+	return c.fallback
+}
+
 // Materials — копия списка в порядке показа.
 func (c Catalog) Materials() []Material {
 	out := make([]Material, len(c.order))
