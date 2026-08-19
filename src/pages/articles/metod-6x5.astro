@@ -6,7 +6,6 @@ import Callout from '../../components/article/Callout.astro';
 import Comparison from '../../components/article/Comparison.astro';
 import Checks from '../../components/article/Checks.astro';
 import InlineCta from '../../components/article/InlineCta.astro';
-import BotCta from '../../components/article/BotCta.astro';
 import { FUNNEL_SOURCE } from '../../data/funnel';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -70,6 +69,7 @@ const commands = `Покажи мои аккаунты и средние про�
   vmCampaign={vmCampaign}
   vmNote="здесь собирается сетка"
   cta="product"
+  funnelSource={FUNNEL_SOURCE.method6x5}
   metrics={[
     { value: '6', label: 'тем из ниши' },
     { value: '5', label: 'рабочих форматов' },
@@ -541,11 +541,5 @@ const commands = `Покажи мои аккаунты и средние про�
       action="Открыть Viralmaxing →"
     />
 
-    <BotCta
-      source={FUNNEL_SOURCE.method6x5}
-      title="Дальше — разбор на 50 млн просмотров"
-      text="Система целиком: аватар, скрипт, продакшн и аналитика, по которой каждый день видно, что дожимать."
-      action="Забрать в Telegram →"
-    />
   </Fragment>
 </Article>

@@ -1,6 +1,7 @@
 ---
 import Base from './Base.astro';
 import { SITE } from '../config';
+import { botHref, type FunnelSource } from '../data/funnel';
 import '../styles/article.css';
 
 // Обёртка статьи: шапка, полоса цифр, «коротко», оглавление и финальный
@@ -29,6 +30,8 @@ interface Props {
   tocTitle?: string;
   /** Куда ведём читателя в первую очередь: в канал или в продукт. */
   cta?: 'telegram' | 'product';
+  /** Метка источника для бота. Финальный блок ведёт в него. */
+  funnelSource?: FunnelSource;
   ctaTitle?: string;
   ctaText?: string;
   ctaAction?: string;
@@ -51,12 +54,18 @@ const {
   toc = [],
   tocTitle = 'В этой статье',
   cta = 'telegram',
+  funnelSource,
   ctaTitle,
   ctaText,
   ctaAction,
 } = Astro.props;
 
 const toProduct = cta === 'product';
+
+// Финальный блок один и ведёт в бота: он помнит, из какой статьи пришёл
+// человек, и отдаёт следующий разбор. Viralmaxing остаётся внутри текста
+// как рабочий инструмент, а не третьей карточкой подряд в конце.
+const toBot = funnelSource ? botHref(funnelSource) : null;
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -128,21 +137,24 @@ const cofounder = 'https://t.me/drozdilya_neuro';
 
       <aside class="final-cta" data-cta="final" data-depth="финальный блок">
         <span>ДАЛЬШЕ</span>
-        <h3>{ctaTitle ?? (toProduct
-          ? 'Соберите свою доску и сетку в Viralmaxing'
-          : 'Такие разборы приходят в телеграм раньше, чем сюда')}</h3>
-        <p>{ctaText ?? (toProduct
-          ? 'Аккаунты, конкуренты, разборы роликов и контент-план в одном месте. MCP для Claude входит.'
-          : 'Пишем про продукты, агентов и находки, которые не помещаются в статью.')}</p>
-        <a href={toProduct ? vm : tg}>{ctaAction ?? (toProduct ? 'Открыть Viralmaxing ↗' : 'Читать телеграм ↗')}</a>
+        {toBot ? (
+          <>
+            <h3>Второй разбор — в Telegram</h3>
+            <p>Бот спросит одно и отдаст тот разбор, который подойдёт: там же, где вы читаете остальное.</p>
+            <a href={toBot}>Забрать в Telegram ↗</a>
+          </>
+        ) : (
+          <>
+            <h3>{ctaTitle ?? (toProduct
+              ? 'Соберите свою доску и сетку в Viralmaxing'
+              : 'Такие разборы приходят в телеграм раньше, чем сюда')}</h3>
+            <p>{ctaText ?? (toProduct
+              ? 'Аккаунты, конкуренты, разборы роликов и контент-план в одном месте. MCP для Claude входит.'
+              : 'Пишем про продукты, агентов и находки, которые не помещаются в статью.')}</p>
+            <a href={toProduct ? vm : tg}>{ctaAction ?? (toProduct ? 'Открыть Viralmaxing ↗' : 'Читать телеграм ↗')}</a>
+          </>
+        )}
       </aside>
-
-      {toProduct && (
-        <p class="note">
-          Разборы и находки я выкладываю в <a href={tg}>телеграме</a>, а личка открыта для
-          вопросов: <a href={SITE.telegramDM}>@Lesha_Muzyka</a>.
-        </p>
-      )}
 
       <p class="note">
         Если знаете крупные проекты в health &amp; fitness в США, бады или мобильные

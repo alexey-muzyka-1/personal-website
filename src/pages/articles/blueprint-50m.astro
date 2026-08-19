@@ -5,7 +5,6 @@ import Callout from '../../components/article/Callout.astro';
 import Comparison from '../../components/article/Comparison.astro';
 import Checks from '../../components/article/Checks.astro';
 import InlineCta from '../../components/article/InlineCta.astro';
-import BotCta from '../../components/article/BotCta.astro';
 import { FUNNEL_SOURCE } from '../../data/funnel';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -35,6 +34,7 @@ const schema = {
   image="/blueprint/og.png"
   schema={schema}
   vmCampaign={vmCampaign}
+  funnelSource={FUNNEL_SOURCE.blueprint50}
   metrics={[
     { value: '49,7 млн', label: 'просмотров' },
     { value: '1318', label: 'публикаций' },
@@ -1003,11 +1003,5 @@ const schema = {
         продукт, и он вырос из этой задачи.
       </p>
 
-      <BotCta
-        source={FUNNEL_SOURCE.blueprint50}
-        title="Дальше — контент-план на месяц за полчаса"
-        text="Метод 6 × 5: шесть тем на пять форматов и тридцать сценариев из того, что уже собирает просмотры в вашей нише."
-        action="Забрать в Telegram →"
-      />
-  </Fragment>
+    </Fragment>
 </Article>
