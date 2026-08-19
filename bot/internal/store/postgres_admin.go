@@ -40,6 +40,35 @@ func (p *Postgres) Stages(ctx context.Context) (map[string]admin.Stage, error) {
 	return stages, nil
 }
 
+// Segments — кого куда привели. Отвечает на вопрос, кому сейчас есть что
+// предложить, не открывая карточку каждого человека.
+func (p *Postgres) Segments(ctx context.Context) ([]admin.Segment, error) {
+	const query = `
+		select
+			u.stage,
+			count(*) as people,
+			count(*) filter (where exists(
+				select 1 from events e
+				where e.telegram_id = u.telegram_id and e.name = 'waitlist_joined'
+			)) as waitlist
+		from users u
+		where u.stage <> ''
+		group by u.stage
+		order by people desc, u.stage`
+
+	rows, err := p.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("querying segments: %w", err)
+	}
+	defer rows.Close()
+
+	segments, err := pgx.CollectRows(rows, pgx.RowToStructByPos[admin.Segment])
+	if err != nil {
+		return nil, fmt.Errorf("collecting segments: %w", err)
+	}
+	return segments, nil
+}
+
 func (p *Postgres) Sources(ctx context.Context) ([]admin.Source, error) {
 	// Пустая метка остаётся отдельной строкой, а не сваливается к
 	// остальным: «пришли без источника» это тоже ответ.
@@ -75,7 +104,7 @@ func (p *Postgres) Leads(ctx context.Context, limit int) ([]admin.Lead, error) {
 			u.username,
 			u.first_name,
 			u.first_seen_at,
-			u.role,
+			u.stage,
 			coalesce((
 				select a.source_id from attributions a
 				where a.telegram_id = u.telegram_id and a.source_id <> ''
@@ -90,7 +119,11 @@ func (p *Postgres) Leads(ctx context.Context, limit int) ([]admin.Lead, error) {
 			exists(
 				select 1 from events e
 				where e.telegram_id = u.telegram_id and e.name = 'material_opened'
-			) as opened
+			) as opened,
+			exists(
+				select 1 from events e
+				where e.telegram_id = u.telegram_id and e.name = 'waitlist_joined'
+			) as waitlist
 		from users u
 		order by u.first_seen_at desc
 		limit $1`

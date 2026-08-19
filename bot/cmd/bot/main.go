@@ -44,6 +44,7 @@ type config struct {
 	// publicBase — где живёт сам бот: на него Telegram шлёт webhook, с
 	// него же уходит tracked redirect.
 	publicBase    string
+	channelURL    string
 	botToken      string
 	webhookSecret string
 	databaseURL   string
@@ -54,6 +55,7 @@ func loadConfig() (config, error) {
 	cfg := config{
 		addr:       envOr("ADDR", ":8080"),
 		siteBase:   envOr("SITE_BASE_URL", "https://alexeymuzyka.com"),
+		channelURL: envOr("TELEGRAM_CHANNEL_URL", "https://t.me/alexeymuzykablog"),
 		setWebhook: envOr("TELEGRAM_SET_WEBHOOK", "") == "true",
 	}
 
@@ -100,7 +102,10 @@ func run(log *slog.Logger) error {
 	}
 	defer db.Close()
 
-	scenario, err := funnel.New(db, funnel.DefaultCatalog(), cfg.siteBase, cfg.publicBase)
+	scenario, err := funnel.New(
+		db, funnel.DefaultCatalog(), cfg.siteBase, cfg.publicBase,
+		funnel.WithChannel(cfg.channelURL),
+	)
 	if err != nil {
 		return fmt.Errorf("building funnel: %w", err)
 	}
@@ -133,7 +138,11 @@ func run(log *slog.Logger) error {
 	mux := http.NewServeMux()
 	mux.Handle("POST "+webhookPath, webhook)
 	mux.Handle("GET /admin", adminPage)
-	mux.HandleFunc("GET /r/{token}", redirect(scenario, cfg.siteBase, log))
+	redirect, err := telegram.NewRedirect(scenario, client, cfg.siteBase+"/articles", log)
+	if err != nil {
+		return fmt.Errorf("building redirect handler: %w", err)
+	}
+	mux.Handle("GET /r/{token}", redirect)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -169,33 +178,6 @@ func run(log *slog.Logger) error {
 	}
 	log.Info("stopped")
 	return nil
-}
-
-// redirect — tracked-переход на статью. Единственное место, где считается
-// факт клика: Telegram о нажатии URL-кнопки не сообщает.
-func redirect(scenario *funnel.Funnel, siteBase string, log *slog.Logger) http.HandlerFunc {
-	fallback := siteBase + "/articles"
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		token := r.PathValue("token")
-
-		target, err := scenario.Open(r.Context(), token)
-		if err != nil {
-			// Человек не должен упереться в ошибку из-за нашей проблемы
-			// или чужой ссылки: ведём его в список статей.
-			level := slog.LevelError
-			if errors.Is(err, funnel.ErrUnknownToken) {
-				level = slog.LevelWarn
-			}
-			log.Log(r.Context(), level, "redirect failed", "error", err)
-			target = fallback
-		}
-
-		// Ссылка одноразовая по смыслу: браузер не должен подменять
-		// переход закэшированным ответом, иначе клик не досчитается.
-		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, target, http.StatusFound)
-	}
 }
 
 func envOr(name, fallback string) string {

@@ -25,9 +25,12 @@ type Store interface {
 	// получит дубль сообщения, а воронка дубль события.
 	MarkUpdate(ctx context.Context, updateID int64) (seen bool, err error)
 	SaveUser(ctx context.Context, u User, at time.Time) error
-	// SetUserRole запоминает ответ про команду. Ответ можно поменять,
-	// переспросив: человек мог начать один и собрать команду.
-	SetUserRole(ctx context.Context, telegramID int64, role Role) error
+	// SetUserStage запоминает состояние человека. Оно меняется: тот, кто
+	// не выпускал, однажды начнёт.
+	SetUserStage(ctx context.Context, telegramID int64, stage Stage) error
+	UserStage(ctx context.Context, telegramID int64) (Stage, error)
+	// HasEvent — было ли у человека такое событие хоть раз.
+	HasEvent(ctx context.Context, telegramID int64, name string) (bool, error)
 	AppendAttribution(ctx context.Context, a Attribution) error
 	// LastSource — источник последнего непустого касания. Пустая строка
 	// означает «источника не было», это не ошибка.

@@ -54,6 +54,22 @@
     {{ end }}
   </table>
 
+  <h2>Кого куда привели</h2>
+  {{ if .Segments }}
+  <table>
+    <tr><th>Состояние</th><th class="num">Людей</th><th class="num">На эфире</th></tr>
+    {{ range .Segments }}
+    <tr>
+      <td>{{ stage .Stage }}</td>
+      <td class="num">{{ .People }}</td>
+      <td class="num">{{ if .Waitlist }}{{ .Waitlist }}{{ else }}<span class="muted">0</span>{{ end }}</td>
+    </tr>
+    {{ end }}
+  </table>
+  {{ else }}
+  <p class="empty">Никто ещё не ответил на вопрос.</p>
+  {{ end }}
+
   <h2>Откуда приходят</h2>
   {{ if .Sources }}
   <table>
@@ -74,7 +90,7 @@
   <h2>Люди</h2>
   {{ if .Leads }}
   <table>
-    <tr><th>Кто</th><th>Пришёл</th><th>Откуда</th><th>Ведёт</th><th>Забрал</th></tr>
+    <tr><th>Кто</th><th>Пришёл</th><th>Откуда</th><th>Состояние</th><th>Забрал</th></tr>
     {{ range .Leads }}
     <tr>
       <td>
@@ -83,7 +99,10 @@
       </td>
       <td class="num muted">{{ moscow .FirstSeen }}</td>
       <td>{{ if .Source }}<code>{{ .Source }}</code>{{ else }}<span class="muted">без метки</span>{{ end }}</td>
-      <td>{{ if .Role }}{{ role .Role }}{{ else }}<span class="muted">не ответил</span>{{ end }}</td>
+      <td>
+        {{ if .Stage }}{{ stage .Stage }}{{ else }}<span class="muted">не ответил</span>{{ end }}
+        {{ if .Waitlist }}<div class="muted">на эфире</div>{{ end }}
+      </td>
       <td>
         {{ if .Materials }}<code>{{ .Materials }}</code>{{ else }}<span class="muted">ничего</span>{{ end }}
         {{ if .Opened }}<div class="muted">открыл</div>{{ end }}

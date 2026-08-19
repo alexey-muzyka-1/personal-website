@@ -105,13 +105,38 @@ func (s *pgStore) SaveUser(ctx context.Context, u funnel.User, at time.Time) err
 	return nil
 }
 
-func (s *pgStore) SetUserRole(ctx context.Context, telegramID int64, role funnel.Role) error {
-	const query = `update users set role = $2 where telegram_id = $1`
+func (s *pgStore) SetUserStage(ctx context.Context, telegramID int64, stage funnel.Stage) error {
+	const query = `update users set stage = $2 where telegram_id = $1`
 
-	if _, err := s.tx.Exec(ctx, query, telegramID, role.String()); err != nil {
-		return fmt.Errorf("saving role: %w", err)
+	if _, err := s.tx.Exec(ctx, query, telegramID, stage.String()); err != nil {
+		return fmt.Errorf("saving stage: %w", err)
 	}
 	return nil
+}
+
+func (s *pgStore) UserStage(ctx context.Context, telegramID int64) (funnel.Stage, error) {
+	const query = `select stage from users where telegram_id = $1`
+
+	var raw string
+	err := s.tx.QueryRow(ctx, query, telegramID).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return funnel.StageUnknown, nil
+	}
+	if err != nil {
+		return funnel.StageUnknown, fmt.Errorf("reading stage: %w", err)
+	}
+	stage, _ := funnel.ParseStage(raw)
+	return stage, nil
+}
+
+func (s *pgStore) HasEvent(ctx context.Context, telegramID int64, name string) (bool, error) {
+	const query = `select exists(select 1 from events where telegram_id = $1 and name = $2)`
+
+	var has bool
+	if err := s.tx.QueryRow(ctx, query, telegramID, name).Scan(&has); err != nil {
+		return false, fmt.Errorf("checking event %s: %w", name, err)
+	}
+	return has, nil
 }
 
 func (s *pgStore) AppendAttribution(ctx context.Context, a funnel.Attribution) error {

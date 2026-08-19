@@ -20,7 +20,8 @@ const maxBodyBytes = 1 << 20
 type Scenario interface {
 	Start(ctx context.Context, cmd funnel.StartCommand) (funnel.Reply, error)
 	Alternative(ctx context.Context, cmd funnel.AlternativeCommand) (funnel.Reply, error)
-	Qualify(ctx context.Context, cmd funnel.QualifyCommand) (funnel.Reply, error)
+	AnswerStage(ctx context.Context, cmd funnel.StageCommand) (funnel.Reply, error)
+	JoinWaitlist(ctx context.Context, cmd funnel.JoinWaitlistCommand) (funnel.Reply, error)
 }
 
 // Sender — исходящая часть Bot API.
@@ -137,11 +138,16 @@ func (h *Handler) handleCallback(ctx context.Context, updateID int64, cb Callbac
 			User:              user,
 			CurrentMaterialID: action.MaterialID,
 		})
-	case funnel.ActionRole:
-		reply, err = h.scenario.Qualify(ctx, funnel.QualifyCommand{
+	case funnel.ActionStage:
+		reply, err = h.scenario.AnswerStage(ctx, funnel.StageCommand{
 			UpdateID: updateID,
 			User:     user,
-			Role:     action.Role,
+			Stage:    action.Stage,
+		})
+	case funnel.ActionWaitlist:
+		reply, err = h.scenario.JoinWaitlist(ctx, funnel.JoinWaitlistCommand{
+			UpdateID: updateID,
+			User:     user,
 		})
 	default:
 		return fmt.Errorf("unsupported action kind %d", action.Kind)

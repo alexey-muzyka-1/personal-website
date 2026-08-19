@@ -45,14 +45,24 @@ type Lead struct {
 	FirstName  string
 	FirstSeen  time.Time
 	Source     string
-	Role       string
+	Stage      string
 	Materials  string
 	Opened     bool
+	Waitlist   bool
+}
+
+// Segment — сколько людей в каком состоянии. Это и есть ответ на вопрос
+// «кого куда привели»: по нему видно, кому есть что предложить.
+type Segment struct {
+	Stage    string
+	People   int
+	Waitlist int
 }
 
 // Reader — то, что странице нужно от базы. Только чтение.
 type Reader interface {
 	Stages(ctx context.Context) (map[string]Stage, error)
+	Segments(ctx context.Context) ([]Segment, error)
 	Sources(ctx context.Context) ([]Source, error)
 	Leads(ctx context.Context, limit int) ([]Lead, error)
 }
@@ -62,10 +72,11 @@ type Reader interface {
 // когда на нижних шагах ноль.
 var stageOrder = []struct{ name, label string }{
 	{"bot_started", "Запустили бота"},
-	{"role_answered", "Ответили на вопрос"},
-	{"alternative_asked", "Попросили другое"},
-	{"material_selected", "Выбрали материал"},
+	{"material_selected", "Получили разбор"},
 	{"material_opened", "Открыли статью"},
+	{"stage_answered", "Ответили про состояние"},
+	{"offer_shown", "Увидели предложение"},
+	{"waitlist_joined", "Записались на эфир"},
 }
 
 const recentLeads = 50
@@ -86,12 +97,14 @@ func NewHandler(reader Reader, log *slog.Logger) (*Handler, error) {
 
 	tmpl, err := template.New("page.html").Funcs(template.FuncMap{
 		"moscow": func(t time.Time) string { return t.Format("02.01 15:04") },
-		"role": func(r string) string {
-			switch r {
-			case "solo":
-				return "сам"
-			case "team":
-				return "с командой"
+		"stage": func(v string) string {
+			switch v {
+			case "not_shipping":
+				return "не выпускает стабильно"
+			case "no_signal":
+				return "выпускает, не видит сигнала"
+			case "other":
+				return "другая ситуация"
 			default:
 				return ""
 			}
@@ -111,10 +124,11 @@ func NewHandler(reader Reader, log *slog.Logger) (*Handler, error) {
 }
 
 type pageData struct {
-	Stages  []Stage
-	Sources []Source
-	Leads   []Lead
-	Now     time.Time
+	Stages   []Stage
+	Segments []Segment
+	Sources  []Source
+	Leads    []Lead
+	Now      time.Time
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +137,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stages, err := h.reader.Stages(ctx)
 	if err != nil {
 		h.fail(w, "stages", err)
+		return
+	}
+	segments, err := h.reader.Segments(ctx)
+	if err != nil {
+		h.fail(w, "segments", err)
 		return
 	}
 	sources, err := h.reader.Sources(ctx)
@@ -143,7 +162,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ordered = append(ordered, stage)
 	}
 
-	data := pageData{Stages: ordered, Sources: sources, Leads: leads, Now: time.Now()}
+	data := pageData{Stages: ordered, Segments: segments, Sources: sources, Leads: leads, Now: time.Now()}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	// Страница за паролем и с личными данными: её не должен закэшировать

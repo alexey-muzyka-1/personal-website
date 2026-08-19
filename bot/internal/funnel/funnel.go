@@ -16,12 +16,13 @@ var ErrUnknownToken = errors.New("unknown link token")
 
 // Funnel — единственное место, где живёт сценарий тикета 01.
 type Funnel struct {
-	db       DB
-	catalog  Catalog
-	siteBase string
-	linkBase string
-	now      func() time.Time
-	newToken func() (string, error)
+	db         DB
+	catalog    Catalog
+	siteBase   string
+	linkBase   string
+	channelURL string
+	now        func() time.Time
+	newToken   func() (string, error)
 }
 
 // Option — подменяемая деталь. Часы и генератор токенов вынесены, чтобы
@@ -34,6 +35,12 @@ func WithClock(now func() time.Time) Option {
 
 func WithTokenSource(newToken func() (string, error)) Option {
 	return func(f *Funnel) { f.newToken = newToken }
+}
+
+// WithChannel задаёт канал, который бот предлагает после полученной
+// ценности. Не задан — предложения канала просто нет.
+func WithChannel(url string) Option {
+	return func(f *Funnel) { f.channelURL = url }
 }
 
 // New собирает воронку.
@@ -164,65 +171,14 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			return Reply{}, fmt.Errorf("appending %s: %w", EventBotStarted, err)
 		}
 
-		// Один вопрос вместо сразу материала. Он окупается дважды: разборы
-		// действительно разные для одиночки и для команды, и ответ нужен
-		// потом, когда появится что продавать.
-		return Reply{
-			Text: lines(
-				"Привет, это Лёша.",
-				"",
-				"Выкладываю разборы того, как мы каждый день выпускаем короткие видео. Статьи целиком, без подписки и почты.",
-				"",
-				bold("Контент ты тянешь сам или с командой?"),
-				"Один вопрос, чтобы дать нужное.",
-			),
-			Buttons: []Button{
-				{Label: "Сам", Action: Action{Kind: ActionRole, Role: RoleSolo}},
-				{Label: "С командой", Action: Action{Kind: ActionRole, Role: RoleTeam}},
-			},
-		}, nil
-	})
-}
-
-// QualifyCommand — ответ на вопрос про команду.
-type QualifyCommand struct {
-	UpdateID int64
-	User     User
-	Role     Role
-}
-
-// Qualify — ответ получен: запоминаем его и отдаём тот разбор, который
-// человеку подходит.
-func (f *Funnel) Qualify(ctx context.Context, cmd QualifyCommand) (Reply, error) {
-	if cmd.Role == RoleUnknown {
-		return Reply{}, errors.New("qualify without a role")
-	}
-
-	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
-		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
-		if err != nil {
-			return Reply{}, fmt.Errorf("reading last source: %w", err)
-		}
-
-		if err := s.SetUserRole(ctx, cmd.User.TelegramID, cmd.Role); err != nil {
-			return Reply{}, fmt.Errorf("saving role: %w", err)
-		}
-
-		m := f.catalog.ForRoleAndSource(cmd.Role, sourceID)
-
-		event := Event{
-			TelegramID: cmd.User.TelegramID,
-			Name:       EventRoleAnswered,
-			SourceID:   sourceID,
-			MaterialID: m.ID,
-			Metadata:   map[string]string{"role": cmd.Role.String()},
-			OccurredAt: at,
-		}
-		if err := s.AppendEvent(ctx, event); err != nil {
-			return Reply{}, fmt.Errorf("appending %s: %w", EventRoleAnswered, err)
-		}
-
-		return f.offer(ctx, s, cmd.User, m, sourceID, roleLead(cmd.Role), at)
+		m := f.catalog.ForSource(sourceID)
+		return f.offer(ctx, s, cmd.User, m, sourceID, lines(
+			"Привет, это Лёша.",
+			"",
+			"Выкладываю разборы того, как мы каждый день выпускаем короткие видео. Статьи целиком, без подписки и почты.",
+			"",
+			"Начал бы с этого:",
+		), at)
 	})
 }
 
@@ -282,15 +238,6 @@ func (f *Funnel) offer(
 	}, nil
 }
 
-// roleLead — одна строка, которая показывает, что ответ услышали.
-// Без неё вопрос выглядит формальностью.
-func roleLead(role Role) string {
-	if role == RoleTeam {
-		return "Тогда с того, что держится на объёме и на нескольких руках."
-	}
-	return "Тогда с того, что собирается в одиночку за один вечер."
-}
-
 // Alternative — escape-ветка. В тикете 01 материала всего два, поэтому
 // уточняющий вопрос ничего не решает: честнее сразу отдать второй.
 // Когда появится анализ Reel (тикет 09), здесь встанет один вопрос.
@@ -321,13 +268,24 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 	})
 }
 
+// Opened — результат перехода по tracked-ссылке.
+type Opened struct {
+	// Target — куда вести браузер.
+	Target string
+	// TelegramID и FollowUp заполнены, когда вслед за открытием человеку
+	// надо написать в чат. Так задаётся вопрос про состояние: ровно
+	// после того, как ценность получена, и ровно один раз.
+	TelegramID int64
+	FollowUp   *Reply
+}
+
 // Open — переход по tracked-ссылке: пишем факт клика и говорим, куда вести
 // человека дальше.
 //
 // Здесь нет ни отсечки повторов, ни отметки активности: это не шаг
 // диалога. Повторное открытие статьи — реальный повторный интерес.
-func (f *Funnel) Open(ctx context.Context, token string) (string, error) {
-	var target string
+func (f *Funnel) Open(ctx context.Context, token string) (Opened, error) {
+	var out Opened
 
 	err := f.db.Atomically(ctx, func(s Store) error {
 		link, ok, err := s.LinkByToken(ctx, token)
@@ -342,6 +300,17 @@ func (f *Funnel) Open(ctx context.Context, token string) (string, error) {
 			return err
 		}
 
+		// Считаем до записи собственного события, иначе оно же и ответит
+		// «уже открывал».
+		openedBefore, err := s.HasEvent(ctx, link.TelegramID, EventMaterialOpened)
+		if err != nil {
+			return fmt.Errorf("checking opens: %w", err)
+		}
+		stage, err := s.UserStage(ctx, link.TelegramID)
+		if err != nil {
+			return fmt.Errorf("reading stage: %w", err)
+		}
+
 		event := Event{
 			TelegramID: link.TelegramID,
 			Name:       EventMaterialOpened,
@@ -353,13 +322,21 @@ func (f *Funnel) Open(ctx context.Context, token string) (string, error) {
 			return fmt.Errorf("appending %s: %w", EventMaterialOpened, err)
 		}
 
-		target = f.articleURL(m, link.SourceID)
+		out.Target = f.articleURL(m, link.SourceID)
+		out.TelegramID = link.TelegramID
+
+		// Вопрос задаётся один раз: человек уже ответил или уже открывал —
+		// значит спрашивать не о чем.
+		if stage == StageUnknown && !openedBefore {
+			reply := f.AskStage()
+			out.FollowUp = &reply
+		}
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return Opened{}, err
 	}
-	return target, nil
+	return out, nil
 }
 
 // articleURL — адрес статьи с меткой перехода.
