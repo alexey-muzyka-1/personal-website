@@ -24,17 +24,17 @@ cp .env.example .env && vim .env          # токен, секрет, парол
 openssl rand -hex 32                      # TELEGRAM_WEBHOOK_SECRET
 openssl rand -hex 24                      # POSTGRES_PASSWORD
 
-docker compose up -d postgres             # сначала база
-docker compose --profile tools run --rm migrate up   # потом схема
-docker compose up -d                      # потом всё остальное
+deploy/compose.sh up -d postgres          # сначала база
+deploy/compose.sh --profile tools run --rm migrate up   # схема
+deploy/compose.sh up -d                   # потом всё остальное
 ```
 
 Когда контейнеры поднялись — один раз зарегистрировать webhook:
 
 ```bash
 # в .env: TELEGRAM_SET_WEBHOOK=true
-docker compose up -d bot
-docker compose logs bot | grep "webhook registered"
+deploy/compose.sh up -d bot
+deploy/compose.sh logs bot | grep "webhook registered"
 # вернуть TELEGRAM_SET_WEBHOOK=false, чтобы не дёргать Telegram
 # при каждом рестарте
 ```
@@ -48,10 +48,16 @@ curl https://<домен>/telegram/webhook   # 404, потому что не POS
 
 ## Обновление
 
+Обычно ничего делать не надо: пуш в `main` с изменениями в `bot/` гоняет
+тесты и выкатывает сам — `.github/workflows/bot-deploy.yml`. Миграции в
+пайплайн не входят.
+
+Руками, если CI недоступен:
+
 ```bash
 git pull
-docker compose --profile tools run --rm migrate up   # если появились миграции
-docker compose up -d --build bot
+deploy/compose.sh --profile tools run --rm migrate up   # если появились миграции
+deploy/compose.sh up -d --build bot
 ```
 
 Миграции всегда отдельным шагом и до выката кода. Автоматически при
@@ -64,8 +70,8 @@ docker compose up -d --build bot
 каждая копия сразу уезжает наружу через rclone.
 
 ```bash
-docker compose logs backup | tail        # что снялось и уехало
-docker compose exec backup ls -lh /backups
+deploy/compose.sh logs backup | tail      # что снялось и уехало
+deploy/compose.sh exec backup ls -lh /backups
 ./restore.sh                             # развернуть последний и посмотреть
 ```
 
@@ -96,10 +102,10 @@ docker compose exec backup ls -lh /backups
 ## Если сломалось
 
 ```bash
-docker compose ps                     # кто упал
-docker compose logs -f bot            # ошибки шагов воронки
-docker compose logs caddy             # сертификаты и маршруты
-docker compose exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+deploy/compose.sh ps                  # кто упал
+deploy/compose.sh logs -f bot         # ошибки шагов воронки
+deploy/compose.sh logs caddy          # сертификаты и маршруты
+deploy/compose.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c "select name, count(*) from events group by 1 order by 2 desc;"'
 ```
 

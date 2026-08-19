@@ -97,19 +97,50 @@ type AlternativeCommand struct {
 // Всё остальное — чужой мусор или попытка подсунуть лишнее.
 var sourceRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-// Start — вход в воронку: запоминаем человека и источник, показываем один
-// рекомендованный материал.
-func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
+// step — каркас любого шага: одна транзакция, отсечка повторной доставки,
+// отметка активности человека.
+//
+// Сам сценарий живёт в fn и не знает ни про транзакции, ни про повторы.
+// Ответ отдаётся только при успешном коммите: сообщение о шаге, который
+// не записан, — худшее, что можно послать человеку.
+func (f *Funnel) step(
+	ctx context.Context,
+	updateID int64,
+	user User,
+	fn func(s Store, at time.Time) (Reply, error),
+) (Reply, error) {
 	var reply Reply
 
 	err := f.db.Atomically(ctx, func(s Store) error {
-		at, skip, err := begin(ctx, s, cmd.UpdateID, cmd.User, f.now)
-		if err != nil || skip {
-			reply = Reply{Skip: skip}
-			return err
+		seen, err := s.MarkUpdate(ctx, updateID)
+		if err != nil {
+			return fmt.Errorf("marking update %d: %w", updateID, err)
+		}
+		if seen {
+			reply = Reply{Skip: true}
+			return nil
 		}
 
+		at := f.now()
+		if err := s.SaveUser(ctx, user, at); err != nil {
+			return fmt.Errorf("saving user %d: %w", user.TelegramID, err)
+		}
+
+		reply, err = fn(s, at)
+		return err
+	})
+	if err != nil {
+		return Reply{}, err
+	}
+	return reply, nil
+}
+
+// Start — вход в воронку: запоминаем человека и источник, показываем один
+// рекомендованный материал.
+func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
+	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
 		sourceID, raw := normalizeSource(cmd.Payload)
+
 		// Атрибуция пишется на каждый /start, даже повторный и даже
 		// пустой: первое касание останется первым, а новый источник не
 		// затрёт историю.
@@ -120,7 +151,7 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			OccurredAt: at,
 		}
 		if err := s.AppendAttribution(ctx, attribution); err != nil {
-			return fmt.Errorf("appending attribution: %w", err)
+			return Reply{}, fmt.Errorf("appending attribution: %w", err)
 		}
 
 		meta := map[string]string{}
@@ -137,11 +168,11 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			OccurredAt: at,
 		}
 		if err := s.AppendEvent(ctx, event); err != nil {
-			return fmt.Errorf("appending %s: %w", EventBotStarted, err)
+			return Reply{}, fmt.Errorf("appending %s: %w", EventBotStarted, err)
 		}
 
 		m := f.catalog.ForSource(sourceID)
-		reply = Reply{
+		return Reply{
 			Text: lines(
 				"Привет, это Лёша.",
 				"",
@@ -155,11 +186,8 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 				{Label: m.Button, Action: Action{Kind: ActionTake, MaterialID: m.ID}},
 				{Label: "Мне это не подходит", Action: Action{Kind: ActionOther, MaterialID: m.ID}},
 			},
-		}
-		return nil
+		}, nil
 	})
-
-	return replyOrError(reply, err)
 }
 
 // Choose — человек выбрал материал. Ссылку отдаём не прямую, а через свой
@@ -170,23 +198,15 @@ func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
 		return Reply{}, err
 	}
 
-	var reply Reply
-
-	err = f.db.Atomically(ctx, func(s Store) error {
-		at, skip, err := begin(ctx, s, cmd.UpdateID, cmd.User, f.now)
-		if err != nil || skip {
-			reply = Reply{Skip: skip}
-			return err
-		}
-
+	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
 		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
 		if err != nil {
-			return fmt.Errorf("reading last source: %w", err)
+			return Reply{}, fmt.Errorf("reading last source: %w", err)
 		}
 
 		token, err := f.newToken()
 		if err != nil {
-			return fmt.Errorf("creating link token: %w", err)
+			return Reply{}, fmt.Errorf("creating link token: %w", err)
 		}
 		link := Link{
 			Token:      token,
@@ -196,7 +216,7 @@ func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
 			CreatedAt:  at,
 		}
 		if err := s.SaveLink(ctx, link); err != nil {
-			return fmt.Errorf("saving link: %w", err)
+			return Reply{}, fmt.Errorf("saving link: %w", err)
 		}
 
 		event := Event{
@@ -207,10 +227,10 @@ func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
 			OccurredAt: at,
 		}
 		if err := s.AppendEvent(ctx, event); err != nil {
-			return fmt.Errorf("appending %s: %w", EventMaterialSelected, err)
+			return Reply{}, fmt.Errorf("appending %s: %w", EventMaterialSelected, err)
 		}
 
-		reply = Reply{
+		return Reply{
 			Text: lines(
 				quote(m.Title),
 				"",
@@ -219,11 +239,8 @@ func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
 			Buttons: []Button{
 				{Label: "Открыть статью", URL: f.linkBase + "/r/" + token},
 			},
-		}
-		return nil
+		}, nil
 	})
-
-	return replyOrError(reply, err)
 }
 
 // Alternative — escape-ветка. В тикете 01 материала всего два, поэтому
@@ -235,18 +252,10 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 		return Reply{}, fmt.Errorf("%w: no alternative for %q", ErrUnknownMaterial, cmd.CurrentMaterialID)
 	}
 
-	var reply Reply
-
-	err := f.db.Atomically(ctx, func(s Store) error {
-		at, skip, err := begin(ctx, s, cmd.UpdateID, cmd.User, f.now)
-		if err != nil || skip {
-			reply = Reply{Skip: skip}
-			return err
-		}
-
+	return f.step(ctx, cmd.UpdateID, cmd.User, func(s Store, at time.Time) (Reply, error) {
 		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
 		if err != nil {
-			return fmt.Errorf("reading last source: %w", err)
+			return Reply{}, fmt.Errorf("reading last source: %w", err)
 		}
 
 		event := Event{
@@ -257,10 +266,10 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 			OccurredAt: at,
 		}
 		if err := s.AppendEvent(ctx, event); err != nil {
-			return fmt.Errorf("appending %s: %w", EventAlternativeAsked, err)
+			return Reply{}, fmt.Errorf("appending %s: %w", EventAlternativeAsked, err)
 		}
 
-		reply = Reply{
+		return Reply{
 			Text: lines(
 				"Понял. Тогда второе:",
 				quote(alt.Title),
@@ -269,18 +278,15 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 			Buttons: []Button{
 				{Label: alt.Button, Action: Action{Kind: ActionTake, MaterialID: alt.ID}},
 			},
-		}
-		return nil
+		}, nil
 	})
-
-	return replyOrError(reply, err)
 }
 
 // Open — переход по tracked-ссылке: пишем факт клика и говорим, куда вести
 // человека дальше.
 //
-// Дедупликации здесь нет специально: повторное открытие статьи — реальный
-// повторный интерес, а не дубль update.
+// Здесь нет ни отсечки повторов, ни отметки активности: это не шаг
+// диалога. Повторное открытие статьи — реальный повторный интерес.
 func (f *Funnel) Open(ctx context.Context, token string) (string, error) {
 	var target string
 
@@ -335,39 +341,6 @@ func (f *Funnel) articleURL(m Material, sourceID string) string {
 	query.Set("utm_campaign", campaign)
 
 	return f.siteBase + m.Path + "?" + query.Encode()
-}
-
-// begin — общий пролог шага: отсечь повторный update и отметить, что
-// человек снова активен.
-func begin(
-	ctx context.Context,
-	s Store,
-	updateID int64,
-	u User,
-	now func() time.Time,
-) (at time.Time, skip bool, err error) {
-	seen, err := s.MarkUpdate(ctx, updateID)
-	if err != nil {
-		return time.Time{}, false, fmt.Errorf("marking update %d: %w", updateID, err)
-	}
-	if seen {
-		return time.Time{}, true, nil
-	}
-
-	at = now()
-	if err := s.SaveUser(ctx, u, at); err != nil {
-		return time.Time{}, false, fmt.Errorf("saving user %d: %w", u.TelegramID, err)
-	}
-	return at, false, nil
-}
-
-// replyOrError: при ошибке ответ не отдаём вообще. Отправить человеку
-// сообщение о шаге, который не записан, — худший из вариантов.
-func replyOrError(reply Reply, err error) (Reply, error) {
-	if err != nil {
-		return Reply{}, err
-	}
-	return reply, nil
 }
 
 // normalizeSource возвращает валидный source_id и сырой payload.

@@ -1,14 +1,17 @@
 ---
-# Выкатка воронки на подготовленную машину.
+# Выкатка воронки руками.
 #
-# Исходники синхронизируются и собираются прямо на месте: реестр образов
-# и CI ради одного маленького бинарника — лишний слой, который нужно
-# отдельно поднимать и чинить.
+# Обычно выкатывает GitHub Actions (.github/workflows/bot-deploy.yml).
+# Этот плейбук — запасной путь на случай, когда CI недоступен, и первый
+# запуск на голой машине. Оба делают одно и то же и зовут один и тот же
+# deploy/compose.sh.
 -   name: Deploy funnel
     hosts: production
     remote_user: root
     vars:
-        compose: docker compose --env-file deploy/.env -f deploy/docker-compose.yml
+        # Как именно поднимается стек, знает deploy/compose.sh — здесь мы
+        # только зовём его, чтобы Ansible и CI не разъехались.
+        compose: deploy/compose.sh
 
     tasks:
         -   name: Ensure app directory exists
