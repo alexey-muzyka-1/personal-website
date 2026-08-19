@@ -4,10 +4,21 @@
 {$BOT_DOMAIN} {
 	encode zstd gzip
 
-	# Наружу открыты только три пути. Всё остальное отвечает 404 и не
+	# Наружу открыты только эти пути. Всё остальное отвечает 404 и не
 	# доходит до бота: незачем светить то, чего нет.
-	@known path /telegram/webhook /r/* /healthz
-	handle @known {
+	@public path /telegram/webhook /r/* /healthz
+	handle @public {
+		reverse_proxy bot:8080
+	}
+
+	# Страница воронки. Пароль спрашивается здесь, а не в боте: своя
+	# авторизация ради одной страницы на чтение — лишний код, который
+	# потом надо поддерживать и который умеет ошибаться.
+	@admin path /admin
+	handle @admin {
+		basic_auth {
+			{$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+		}
 		reverse_proxy bot:8080
 	}
 

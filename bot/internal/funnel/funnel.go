@@ -176,9 +176,9 @@ func (f *Funnel) Start(ctx context.Context, cmd StartCommand) (Reply, error) {
 			Text: lines(
 				"Привет, это Лёша.",
 				"",
-				"Здесь лежат разборы систем, по которым мы каждый день выпускаем короткие видео. Целиком и бесплатно, без обмена на подписку.",
+				"Выкладываю разборы того, как мы каждый день выпускаем короткие видео. Статьи целиком, без подписки и почты.",
 				"",
-				"Начал бы с этого:",
+				"Начал бы с этой:",
 				quote(m.Title),
 				m.Pitch,
 			),
@@ -234,10 +234,10 @@ func (f *Funnel) Choose(ctx context.Context, cmd ChooseCommand) (Reply, error) {
 			Text: lines(
 				quote(m.Title),
 				"",
-				"Читается за один присест. Всё внутри статьи, взамен ничего оставлять не нужно.",
+				m.Inside,
 			),
 			Buttons: []Button{
-				{Label: "Открыть статью", URL: f.linkBase + "/r/" + token},
+				{Label: "Открыть", URL: f.linkBase + "/r/" + token},
 			},
 		}, nil
 	})
@@ -271,7 +271,8 @@ func (f *Funnel) Alternative(ctx context.Context, cmd AlternativeCommand) (Reply
 
 		return Reply{
 			Text: lines(
-				"Понял. Тогда второе:",
+				"Тогда вот второе.",
+				"",
 				quote(alt.Title),
 				alt.Pitch,
 			),

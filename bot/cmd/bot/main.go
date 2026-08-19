@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/admin"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/store"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/telegram"
@@ -122,8 +123,16 @@ func run(log *slog.Logger) error {
 		log.Info("webhook registered", "url", url)
 	}
 
+	// Страница воронки на чтение. Пароль спрашивает Caddy перед тем, как
+	// пустить сюда запрос: своей авторизации в боте нет.
+	adminPage, err := admin.NewHandler(db, log)
+	if err != nil {
+		return fmt.Errorf("building admin page: %w", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("POST "+webhookPath, webhook)
+	mux.Handle("GET /admin", adminPage)
 	mux.HandleFunc("GET /r/{token}", redirect(scenario, cfg.siteBase, log))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
