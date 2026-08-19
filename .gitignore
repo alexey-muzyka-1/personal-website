@@ -16,3 +16,7 @@ npm-debug.log*
 .env
 .env.production
 .gstack/
+
+# секреты и конфиги деплоя
+deploy/.env
+deploy/rclone.conf

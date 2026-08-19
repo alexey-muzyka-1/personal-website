@@ -1,0 +1,15 @@
+# Пустой конфиг rclone: без него контейнер бэкапов не поднимется, а
+# монтировать несуществующий файл нельзя — docker создаст на его месте
+# папку. Настоящий конфиг с ключами хранится вне репозитория, путь к
+# нему задаётся переменной RCLONE_CONFIG_PATH в .env.
+#
+# Пример для Cloudflare R2 или любого S3-совместимого хранилища:
+#
+# [backups]
+# type = s3
+# provider = Cloudflare
+# access_key_id = ...
+# secret_access_key = ...
+# endpoint = https://<account>.r2.cloudflarestorage.com
+#
+# Тогда в .env: BACKUP_REMOTE=backups:funnel-backups

@@ -1,0 +1,110 @@
+# Вся личная воронка на одной машине: прокси с сертификатами, бот,
+# Postgres и снятие бэкапов.
+#
+# Переменные берутся из .env рядом с этим файлом. В репозитории его нет
+# и быть не должно — см. .env.example.
+
+name: funnel
+
+services:
+  # Caddy сам получает и продлевает сертификаты. Нужен и Telegram
+  # (webhook только по HTTPS), и платёжке, когда дойдёт до оплат.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BOT_DOMAIN: ${BOT_DOMAIN:?нужен домен бота}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bot
+
+  bot:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Внутри docker-сети трафик не выходит наружу, поэтому sslmode
+      # выключен осознанно. Наружу база не смотрит вообще.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      PUBLIC_BASE_URL: https://${BOT_DOMAIN}
+      SITE_BASE_URL: ${SITE_BASE_URL:-https://alexeymuzyka.com}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?нужен токен из BotFather}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?нужен секрет webhook}
+      TELEGRAM_SET_WEBHOOK: ${TELEGRAM_SET_WEBHOOK:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    # Версия зафиксирована: обновление мажора это отдельная осознанная
+    # операция с бэкапом и проверкой, а не побочный эффект docker pull.
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?нужен пользователь базы}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?нужен пароль базы}
+      POSTGRES_DB: ${POSTGRES_DB:-funnel}
+    volumes:
+      # Именованный том: docker compose down данные не трогает.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Наружу порт не открыт специально: до базы можно дойти только с
+    # самой машины через docker compose exec.
+
+  # Миграции руками, отдельным шагом: docker compose run --rm migrate up
+  # Профиль tools не даёт этому контейнеру подниматься вместе со всеми.
+  migrate:
+    image: migrate/migrate:v4.18.1
+    profiles: [tools]
+    volumes:
+      - ../migrations:/migrations:ro
+    entrypoint:
+      - migrate
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Снимает дамп по расписанию. Бэкап на том же диске это не бэкап,
+  # поэтому скрипт умеет выкладывать копию наружу через rclone.
+  backup:
+    build:
+      context: .
+      dockerfile: backup.Dockerfile
+    restart: unless-stopped
+    environment:
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-funnel}
+      PGHOST: postgres
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_EVERY_SECONDS: ${BACKUP_EVERY_SECONDS:-86400}
+      BACKUP_REMOTE: ${BACKUP_REMOTE:-}
+    volumes:
+      - ./backup.sh:/usr/local/bin/backup.sh:ro
+      - backups:/backups
+      # Конфиг rclone, если копии уезжают наружу. Нет файла — нет и
+      # выгрузки, скрипт об этом честно пишет в лог.
+      - ${RCLONE_CONFIG_PATH:-./rclone.conf.example}:/config/rclone/rclone.conf:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  backups:
+  caddy_data:
+  caddy_config:
