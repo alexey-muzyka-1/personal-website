@@ -17,6 +17,10 @@ services:
       - "443:443"
     environment:
       BOT_DOMAIN: ${BOT_DOMAIN:?нужен домен бота}
+      ADMIN_USER: ${ADMIN_USER:-lesha}
+      # bcrypt-хэш, не пароль: docker run --rm caddy:2-alpine \
+      #   caddy hash-password --plaintext '...'
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?нужен хэш пароля для /admin}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
