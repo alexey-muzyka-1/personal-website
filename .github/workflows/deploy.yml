@@ -3,6 +3,16 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+    # Только изменения сайта. Без фильтра любой мердж бота пересобирал и
+    # выкатывал сайт заодно — так он однажды уехал на прод незаметно.
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'articles/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:

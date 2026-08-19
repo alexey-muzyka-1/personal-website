@@ -4,7 +4,7 @@ import { SITE } from '../config';
 import { homeTools } from '../data/tools';
 import { featuredArticle } from '../data/articles';
 import { botHref, FUNNEL_SOURCE } from '../data/funnel';
-import { systems, figures } from '../data/systems';
+import { giveaways, figures } from '../data/systems';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -146,18 +146,41 @@ const schema = [
   </section>
 
   <section class="block section-major">
-    <h2 class="section-h">Что крутится</h2>
+    <h2 class="section-h">Продукты</h2>
+    <div class="prod-head">
+      <img src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="44" height="44" />
+      <div>
+        <h3>Viralmaxing</h3>
+        <p>Главный фокус. Две части, каждая под свою работу.</p>
+      </div>
+    </div>
+    <div class="grid">
+      <a class="tile" href={SITE.viralmaxing}>
+        <div class="tile-top"><Icon name="web" size={18} /><b>Веб</b></div>
+        <p>Вся аналитика рилсов в одном экране.</p>
+        <span class="go">viralmaxing.com →</span>
+      </a>
+      <a class="tile" href={SITE.viralmaxingAppStore}>
+        <div class="tile-top"><Icon name="iphone" size={18} /><b>iPhone</b></div>
+        <p>Быстро адаптируешь сценарий под себя и растишь свой аккаунт.</p>
+        <span class="go">App Store →</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="block section-major">
+    <h2 class="section-h">Что можно забрать</h2>
     <p>
-      Рабочий контур целиком. Продукт, которым пользуются другие, и то, что
-      я отдал целиком — забирайте, взамен ничего не нужно.
+      Всё это работает у меня каждый день. Ничего не собрано специально для
+      этой страницы, и взамен ничего не нужно.
     </p>
     <table class="systems">
-      {systems.map((sys) => (
+      {giveaways.map((item) => (
         <tr>
-          <td><a class="s-name" href={sys.href}>{sys.name}</a></td>
-          <td class="s-kind">{sys.kind}</td>
-          <td class="s-what">{sys.what}</td>
-          <td class="s-state">{sys.state}</td>
+          <td><a class="s-name" href={item.href}>{item.name}</a></td>
+          <td class="s-kind">{item.kind}</td>
+          <td class="s-what">{item.what}</td>
+          <td class="s-state">забрать →</td>
         </tr>
       ))}
     </table>
