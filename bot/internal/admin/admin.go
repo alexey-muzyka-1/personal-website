@@ -45,6 +45,7 @@ type Lead struct {
 	FirstName  string
 	FirstSeen  time.Time
 	Source     string
+	Role       string
 	Materials  string
 	Opened     bool
 }
@@ -61,6 +62,7 @@ type Reader interface {
 // когда на нижних шагах ноль.
 var stageOrder = []struct{ name, label string }{
 	{"bot_started", "Запустили бота"},
+	{"role_answered", "Ответили на вопрос"},
 	{"alternative_asked", "Попросили другое"},
 	{"material_selected", "Выбрали материал"},
 	{"material_opened", "Открыли статью"},
@@ -84,6 +86,16 @@ func NewHandler(reader Reader, log *slog.Logger) (*Handler, error) {
 
 	tmpl, err := template.New("page.html").Funcs(template.FuncMap{
 		"moscow": func(t time.Time) string { return t.Format("02.01 15:04") },
+		"role": func(r string) string {
+			switch r {
+			case "solo":
+				return "сам"
+			case "team":
+				return "с командой"
+			default:
+				return ""
+			}
+		},
 		"share": func(part, whole int) string {
 			if whole == 0 {
 				return ""

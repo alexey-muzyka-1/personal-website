@@ -48,6 +48,14 @@ type Catalog struct {
 	// обещал. Пока пусто: у существующих Reel нет своих обещаний, и
 	// придумывать их за автора нельзя. Заполняется на тикете 10.
 	routes map[string]string
+	// byRole: ответ на вопрос про команду → материал. Одиночке и команде
+	// подходят разные разборы, и это не маркетинг, а факт: метод 6 × 5
+	// написан для того, кто ведёт аккаунт сам, блупринт — про объём,
+	// который делает команда.
+	byRole map[Role]string
+	// readFrom: с какой статьи человек пришёл, то есть что он уже прочитал.
+	// Нужно, чтобы не предлагать ему ровно то, что он только что закрыл.
+	readFrom map[string]string
 }
 
 // NewCatalog проверяет каталог на входе: пустой список, дубли и неизвестный
@@ -81,6 +89,8 @@ func NewCatalog(materials []Material, fallbackID string) (Catalog, error) {
 		byID:     byID,
 		fallback: fallback,
 		routes:   map[string]string{},
+		byRole:   map[Role]string{},
+		readFrom: map[string]string{},
 	}, nil
 }
 
@@ -138,7 +148,36 @@ func DefaultCatalog() Catalog {
 			panic("funnel: broken default route: " + err.Error())
 		}
 	}
+
+	// Кто ведёт контент сам — тому метод: он собирается за один вечер
+	// в одиночку. Кто с командой — тому блупринт: там объём, который
+	// одному не выпустить.
+	c.byRole = map[Role]string{
+		RoleSolo: MaterialMethod6x5,
+		RoleTeam: MaterialBlueprint50,
+	}
+	// Что человек уже прочитал, если пришёл со страницы статьи.
+	c.readFrom = map[string]string{
+		SourceSiteMethod6x5:   MaterialMethod6x5,
+		SourceSiteBlueprint50: MaterialBlueprint50,
+	}
 	return c
+}
+
+// ForRoleAndSource — материал под ответ человека, с одной поправкой:
+// если под его роль подходит ровно то, что он только что прочитал на
+// сайте, отдаём второй. Предлагать закрытую вкладку — невнимание.
+func (c Catalog) ForRoleAndSource(role Role, sourceID string) Material {
+	id, ok := c.byRole[role]
+	if !ok {
+		return c.ForSource(sourceID)
+	}
+	if already, came := c.readFrom[sourceID]; came && already == id {
+		if alt, has := c.Alternative(id); has {
+			return alt
+		}
+	}
+	return c.byID[id]
 }
 
 // WithRoute привязывает source_id к материалу и возвращает новый каталог:

@@ -75,6 +75,7 @@ func (p *Postgres) Leads(ctx context.Context, limit int) ([]admin.Lead, error) {
 			u.username,
 			u.first_name,
 			u.first_seen_at,
+			u.role,
 			coalesce((
 				select a.source_id from attributions a
 				where a.telegram_id = u.telegram_id and a.source_id <> ''

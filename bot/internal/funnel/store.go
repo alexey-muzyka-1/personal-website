@@ -25,6 +25,9 @@ type Store interface {
 	// получит дубль сообщения, а воронка дубль события.
 	MarkUpdate(ctx context.Context, updateID int64) (seen bool, err error)
 	SaveUser(ctx context.Context, u User, at time.Time) error
+	// SetUserRole запоминает ответ про команду. Ответ можно поменять,
+	// переспросив: человек мог начать один и собрать команду.
+	SetUserRole(ctx context.Context, telegramID int64, role Role) error
 	AppendAttribution(ctx context.Context, a Attribution) error
 	// LastSource — источник последнего непустого касания. Пустая строка
 	// означает «источника не было», это не ошибка.

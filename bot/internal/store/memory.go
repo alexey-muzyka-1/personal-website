@@ -71,8 +71,17 @@ func (m *Memory) User(telegramID int64) (u funnel.User, firstSeen, lastSeen time
 	return stored.user, stored.firstSeen, stored.lastSeen, ok
 }
 
+// Role — сохранённый ответ про команду.
+func (m *Memory) Role(telegramID int64) funnel.Role {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.data.users[telegramID].role
+}
+
 type storedUser struct {
 	user      funnel.User
+	role      funnel.Role
 	firstSeen time.Time
 	lastSeen  time.Time
 }
@@ -132,6 +141,13 @@ func (s *memoryStore) SaveUser(_ context.Context, u funnel.User, at time.Time) e
 	stored.user = u
 	stored.lastSeen = at
 	s.data.users[u.TelegramID] = stored
+	return nil
+}
+
+func (s *memoryStore) SetUserRole(_ context.Context, telegramID int64, role funnel.Role) error {
+	stored := s.data.users[telegramID]
+	stored.role = role
+	s.data.users[telegramID] = stored
 	return nil
 }
 
