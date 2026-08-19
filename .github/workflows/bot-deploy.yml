@@ -1,0 +1,84 @@
+name: Deploy bot
+
+# Только изменения бота. Правка статьи на сайте не должна пересобирать
+# и перезапускать процесс, который держит вебхук.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bot/**'
+      - '.github/workflows/bot-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: bot-deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: bot/go.mod
+          cache-dependency-path: bot/go.sum
+
+      - name: Vet
+        working-directory: bot
+        run: go vet ./...
+
+      # Тесты гоняются до выкатки: сломанный сценарий не должен доехать
+      # до людей. Здесь же падает карта бота, если она разошлась с кодом.
+      - name: Test
+        working-directory: bot
+        run: go test -race ./...
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Add deploy key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "${{ secrets.FUNNEL_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.FUNNEL_HOST }}" >> ~/.ssh/known_hosts
+
+      # .env и rclone.conf живут только на машине: секреты сюда не
+      # приезжают и уехать отсюда не могут.
+      - name: Sync sources
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='deploy/.env' \
+            --exclude='deploy/rclone.conf' \
+            --exclude='deploy/vps_setup/inventories/*/hosts.yml' \
+            bot/ root@${{ secrets.FUNNEL_HOST }}:/opt/funnel/
+
+      - name: Build and restart
+        run: |
+          ssh root@${{ secrets.FUNNEL_HOST }} \
+            'cd /opt/funnel && docker compose --env-file deploy/.env \
+             -f deploy/docker-compose.yml up -d --build'
+
+      # Миграции сознательно не здесь: схема базы лидов меняется только
+      # руками, командой make migrate ENV=prod.
+
+      - name: Check that the bot answers
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' \
+              --max-time 10 "https://${{ secrets.FUNNEL_DOMAIN }}/healthz" || true)
+            if [ "$code" = "200" ]; then
+              echo "бот отвечает"
+              exit 0
+            fi
+            echo "попытка $i: код $code, жду"
+            sleep 6
+          done
+          echo "бот не ответил за минуту"
+          exit 1
