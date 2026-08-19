@@ -5,12 +5,15 @@
 :root {
   --bg:     #f7f5f0;  /* тёплая бумага */
   --fg:     #2b2926;  /* мягкая тушь, не чёрный */
-  --muted:  #8f897e;  /* приглушённый */
-  --accent: #6b6256;  /* тихий тон для ссылок, без золота */
+  --muted:  #6f6a5f;  /* 4,9:1 к фону — им набрано всё вторичное, он обязан читаться */
+  --accent: #2f5568;  /* чернила: единственный холодный тон на тёплой бумаге */
   --line:   #e6e2d8;  /* тонкая линия */
 
   --serif: 'Lora', Georgia, serif;
   --sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Моноширинный — машинный знак. Системный, чтобы не тащить седьмой вес
+     с чужого домена ради двух строк. */
+  --mono:  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   --maxw: 720px;
 }
@@ -18,16 +21,16 @@
 :root[data-theme="dark"] {
   --bg:     #16140f;
   --fg:     #e4ddd0;
-  --muted:  #8b8273;
-  --accent: #b6a890;
+  --muted:  #9a9184;
+  --accent: #8fb8cf;
   --line:   #29251d;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --bg:     #16140f;
     --fg:     #e4ddd0;
-    --muted:  #8b8273;
-    --accent: #b6a890;
+    --muted:  #9a9184;
+    --accent: #8fb8cf;
     --line:   #29251d;
   }
 }
@@ -50,8 +53,20 @@ body {
 h1, h2, h3 { font-family: var(--serif); font-weight: 500; letter-spacing: 0; }
 p { margin: 0 0 0.9rem; }
 
-a { color: inherit; text-decoration: none; }
+a { color: inherit; text-decoration: none; transition: color .15s ease, border-color .15s ease; }
 a:hover { color: var(--accent); }
+
+/* Клавиатура должна видеть, где она находится. Системное кольцо синее и
+   на тёплой бумаге выглядит чужим, поэтому своё. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
 
 /* ---- плитка: инструменты и платформы продукта ----
    auto-fit + minmax: один элемент занимает всю ширину, два встают в ряд,
@@ -80,7 +95,8 @@ a:hover { color: var(--accent); }
 .nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 28px 0 36px; }
 .nav .brand { font-family: var(--serif); font-weight: 500; font-size: 1rem; }
 .nav .links { display: flex; gap: 20px; font-size: 0.88rem; }
-.nav .links a { color: var(--muted); }
+/* 44px по высоте: раньше пункт был 22px и мимо него промахивались. */
+.nav .links a { color: var(--muted); display: inline-flex; align-items: center; min-height: 44px; }
 .nav .links a:hover { color: var(--fg); }
 .nav .links a[aria-current="page"] { color: var(--fg); }
 .nav-right { display: flex; align-items: center; gap: 18px; }
@@ -91,7 +107,7 @@ a:hover { color: var(--accent); }
   .nav .links { gap: 14px; font-size: 0.84rem; }
   .nav .links .link-home { display: none; }
 }
-.theme-toggle { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 4px; display: inline-flex; line-height: 0; }
+.theme-toggle { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 10px; margin: -10px; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; line-height: 0; }
 .theme-toggle:hover { color: var(--fg); }
 .theme-toggle svg { width: 18px; height: 18px; }
 .theme-toggle .icon-sun { display: none; }
@@ -103,9 +119,32 @@ a:hover { color: var(--accent); }
 .head { display: flex; align-items: center; gap: 22px; padding: 8px 0 4px; }
 .portrait { width: 110px; height: 110px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
 .head-text { min-width: 0; }
-.head h1 { font-size: 1.7rem; margin: 0; font-weight: 500; }
+.head h1 { font-size: 2.4rem; margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; }
 .head .lede { color: var(--muted); margin: 6px 0 0; }
-.hero-tagline { color: var(--muted); margin: 6px 0 0; }
+.hero-tagline { color: var(--fg); margin: 10px 0 0; font-size: 1.1rem; line-height: 1.45; max-width: 30em; }
+
+/* Действие на первом экране. Единственная залитая кнопка на сайте:
+   если залить две, не будет ни одной. */
+.hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
+.btn-primary {
+  display: inline-flex; align-items: center; min-height: 48px;
+  padding: 12px 22px; border-radius: 9px;
+  background: var(--fg); color: var(--bg);
+  font-size: 0.95rem; font-weight: 500;
+}
+.btn-primary:hover { background: var(--accent); color: var(--bg); }
+
+/* Пруф строкой: числа моноширинным, источник рядом. Числа чужие не
+   бывают — рядом всегда написано, из какого разбора они взяты. */
+.proof { margin: 20px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.proof-nums {
+  font-family: var(--mono); font-size: 0.82rem; letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums; color: var(--fg);
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px;
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
+}
+.proof-src { font-size: 0.82rem; color: var(--muted); }
+.proof-src a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .hero-desc { color: var(--muted); margin: 16px 0 0; font-size: 1.05rem; }
 .subnote { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
 
@@ -146,7 +185,7 @@ a:hover { color: var(--accent); }
 @media (max-width: 600px) { .card { flex-direction: column; gap: 12px; } }
 
 /* ---- кнопка «Открыть» ---- */
-.btn-open { display: inline-block; padding: 8px 16px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.9rem; color: var(--fg); }
+.btn-open { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 8px; font-size: 0.9rem; color: var(--fg); }
 .btn-open:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---- агенты (отдельная страница) ---- */
@@ -233,7 +272,10 @@ a:hover { color: var(--accent); }
   .head { gap: 14px; }
   .portrait { width: 84px; height: 84px; }
   .head h1 { font-size: 1.5rem; }
-  .hero-tagline { display: none; }
+    /* Тезис на телефоне обязан быть виден: это единственная строка,
+     которая объясняет, кто здесь. Раньше он был display: none. */
+  .hero-tagline { font-size: 1.02rem; }
+  .head h1 { font-size: 1.9rem; }
   .tbl .by { white-space: normal; }
   .tbl, .meta { font-size: 0.9rem; }
 }
