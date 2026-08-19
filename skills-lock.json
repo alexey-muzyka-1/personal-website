@@ -30,6 +30,18 @@
       "sourceType": "github",
       "skillPath": "skills/golang-error-handling/SKILL.md",
       "computedHash": "1601d92a30a221903d024d4ad470595c3c6141d14a5b274a446394adefc83a52"
+    },
+    "secure-vps-setup": {
+      "source": "tibobfd/skills-secure-vps-for-beginners",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "21469e5d019267f15e9c33aaf47fde2755e759bbcd9b00d4a58bbb476e79f8a5"
+    },
+    "unslop": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "skillPath": "pstack/skills/unslop/SKILL.md",
+      "computedHash": "3dfc2afeda677e12c6065497a40df7d895859de1c7d1cffb899b1559d129fe4f"
     }
   }
 }
