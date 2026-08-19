@@ -31,7 +31,7 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
       (function () {
         try {
           var t = localStorage.getItem('theme');
-          if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          if (!t) t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
           document.documentElement.dataset.theme = t;
         } catch (e) {}
       })();
@@ -60,7 +60,7 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Lora:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     {SITE.gaId && (

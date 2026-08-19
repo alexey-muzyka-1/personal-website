@@ -8,12 +8,13 @@
   --muted:  #6f6a5f;  /* 4,9:1 к фону — им набрано всё вторичное, он обязан читаться */
   --accent: #2f5568;  /* чернила: единственный холодный тон на тёплой бумаге */
   --line:   #e6e2d8;  /* тонкая линия */
+  --live:   #3f7a4f;  /* «работает»: единственный сигнальный цвет */
 
   --serif: 'Lora', Georgia, serif;
   --sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   /* Моноширинный — машинный знак. Системный, чтобы не тащить седьмой вес
      с чужого домена ради двух строк. */
-  --mono:  ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --maxw: 720px;
 }
@@ -24,6 +25,7 @@
   --muted:  #9a9184;
   --accent: #8fb8cf;
   --line:   #29251d;
+  --live:   #7fb069;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -32,6 +34,7 @@
     --muted:  #9a9184;
     --accent: #8fb8cf;
     --line:   #29251d;
+    --live:   #7fb069;
   }
 }
 
@@ -278,4 +281,54 @@ a:hover { color: var(--accent); }
   .head h1 { font-size: 1.9rem; }
   .tbl .by { white-space: normal; }
   .tbl, .meta { font-size: 0.9rem; }
+}
+
+
+/* ============================================================
+   Машинные знаки. Моноширинный здесь несущий, а не декоративный:
+   им набрано всё, что машина знает точнее человека — статусы,
+   числа, имена систем, служебные подписи.
+   ============================================================ */
+
+/* Статусная строка: сайт сообщает, что контур живой. */
+.status {
+  font-family: var(--mono); font-size: 0.76rem; line-height: 1.5;
+  color: var(--muted); margin: 22px 0 0;
+}
+/* Точка обязана ехать вместе с первым словом: во флексе она при переносе
+   оставалась одна на строке. */
+.status .dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--live); margin-right: 8px; vertical-align: 0.08em;
+}
+
+/* Числа как вывод команды: подпись слева, значение справа. */
+.figures { margin: 44px 0 0; border-top: 1px solid var(--line); }
+.figures div {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  padding: 13px 0; border-bottom: 1px solid var(--line);
+  font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
+}
+.figures b {
+  color: var(--fg); font-weight: 500; font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Инвентарь: что крутится и в каком состоянии. */
+.systems { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.systems td { padding: 15px 16px 15px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.systems td:last-child { padding-right: 0; text-align: right; }
+.systems tr:hover .s-name { color: var(--accent); }
+.s-name { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; white-space: nowrap; }
+.s-kind { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+.s-what { color: var(--muted); font-size: 0.94rem; }
+.s-state { font-family: var(--mono); font-size: 0.74rem; color: var(--live); white-space: nowrap; }
+
+/* Подписи разделов моноширинным: они служебные, а не заголовки статьи. */
+.section-h .all { font-family: var(--mono); font-size: 0.76rem; }
+.btn-primary, .btn-open { font-family: var(--mono); }
+
+@media (max-width: 640px) {
+  .systems .s-kind, .systems .s-what { display: none; }
+  .systems td { padding: 14px 12px 14px 0; }
 }

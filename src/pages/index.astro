@@ -4,6 +4,7 @@ import { SITE } from '../config';
 import { homeTools } from '../data/tools';
 import { featuredArticle } from '../data/articles';
 import { botHref, FUNNEL_SOURCE } from '../data/funnel';
+import { systems, figures } from '../data/systems';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -60,6 +61,9 @@ const schema = [
       <p class="hero-tagline">
         Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.
       </p>
+      <p class="status">
+        <span class="dot" aria-hidden="true"></span>работает прямо сейчас · последний разбор 14.08.2026
+      </p>
     </div>
   </header>
 
@@ -70,12 +74,11 @@ const schema = [
     <a class="btn-open" href={`${base}articles`}>Читать на сайте</a>
   </div>
 
-  <p class="proof">
-    <span class="proof-nums">49,7 млн просмотров · 1318 публикаций · 30 дней</span>
-    <span class="proof-src">
-      из разбора <a href={`${base}articles/blueprint-50m`}>«Как мы разогнали аккаунты»</a>
-    </span>
-  </p>
+  <div class="figures">
+    {figures.map((f) => (
+      <div><span>{f.label}</span><b>{f.value}</b></div>
+    ))}
+  </div>
 
   <section class="block section-major">
     <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
@@ -143,26 +146,21 @@ const schema = [
   </section>
 
   <section class="block section-major">
-    <h2 class="section-h">Продукты</h2>
-    <div class="prod-head">
-      <img src={`${base}viralmaxing-logo.png`} alt="Viralmaxing" width="44" height="44" />
-      <div>
-        <h3>Viralmaxing</h3>
-        <p>Главный фокус. Две части, каждая под свою работу.</p>
-      </div>
-    </div>
-    <div class="grid">
-      <a class="tile" href={SITE.viralmaxing}>
-        <div class="tile-top"><Icon name="web" size={18} /><b>Веб</b></div>
-        <p>Вся аналитика рилсов в одном экране.</p>
-        <span class="go">viralmaxing.com →</span>
-      </a>
-      <a class="tile" href={SITE.viralmaxingAppStore}>
-        <div class="tile-top"><Icon name="iphone" size={18} /><b>iPhone</b></div>
-        <p>Быстро адаптируешь сценарий под себя и растишь свой аккаунт.</p>
-        <span class="go">App Store →</span>
-      </a>
-    </div>
+    <h2 class="section-h">Что крутится</h2>
+    <p>
+      Рабочий контур целиком. Продукт, которым пользуются другие, и то, что
+      я отдал целиком — забирайте, взамен ничего не нужно.
+    </p>
+    <table class="systems">
+      {systems.map((sys) => (
+        <tr>
+          <td><a class="s-name" href={sys.href}>{sys.name}</a></td>
+          <td class="s-kind">{sys.kind}</td>
+          <td class="s-what">{sys.what}</td>
+          <td class="s-state">{sys.state}</td>
+        </tr>
+      ))}
+    </table>
   </section>
 
   <p class="more-line">
