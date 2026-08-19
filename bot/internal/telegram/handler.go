@@ -19,7 +19,6 @@ const maxBodyBytes = 1 << 20
 // потребителя: боевая реализация — *funnel.Funnel, тестовая — фейк рядом.
 type Scenario interface {
 	Start(ctx context.Context, cmd funnel.StartCommand) (funnel.Reply, error)
-	Choose(ctx context.Context, cmd funnel.ChooseCommand) (funnel.Reply, error)
 	Alternative(ctx context.Context, cmd funnel.AlternativeCommand) (funnel.Reply, error)
 	Qualify(ctx context.Context, cmd funnel.QualifyCommand) (funnel.Reply, error)
 }
@@ -27,6 +26,8 @@ type Scenario interface {
 // Sender — исходящая часть Bot API.
 type Sender interface {
 	SendMessage(ctx context.Context, chatID int64, reply funnel.Reply) error
+	// EditMessage заменяет уже отправленное сообщение вместе с кнопками.
+	EditMessage(ctx context.Context, chatID, messageID int64, reply funnel.Reply) error
 	AnswerCallback(ctx context.Context, callbackID string) error
 }
 
@@ -130,12 +131,6 @@ func (h *Handler) handleCallback(ctx context.Context, updateID int64, cb Callbac
 
 	var reply funnel.Reply
 	switch action.Kind {
-	case funnel.ActionTake:
-		reply, err = h.scenario.Choose(ctx, funnel.ChooseCommand{
-			UpdateID:   updateID,
-			User:       user,
-			MaterialID: action.MaterialID,
-		})
 	case funnel.ActionOther:
 		reply, err = h.scenario.Alternative(ctx, funnel.AlternativeCommand{
 			UpdateID:          updateID,
@@ -164,7 +159,30 @@ func (h *Handler) handleCallback(ctx context.Context, updateID int64, cb Callbac
 	if err := h.sender.AnswerCallback(ctx, cb.ID); err != nil {
 		return fmt.Errorf("answering callback: %w", err)
 	}
-	return h.send(ctx, callbackChatID(cb), reply)
+	return h.replace(ctx, cb, reply)
+}
+
+// replace — ответ на нажатие заменяет то сообщение, на котором нажали.
+//
+// Иначе старые кнопки остаются живыми, и по воронке можно прыгать
+// бесконечно, плодя сообщения. Правило транспортное: сценарий не знает
+// про идентификаторы сообщений.
+func (h *Handler) replace(ctx context.Context, cb CallbackQuery, reply funnel.Reply) error {
+	if reply.Skip {
+		return nil
+	}
+	chatID := callbackChatID(cb)
+
+	if cb.Message == nil || cb.Message.MessageID == 0 {
+		return h.send(ctx, chatID, reply)
+	}
+	if err := h.sender.EditMessage(ctx, chatID, cb.Message.MessageID, reply); err != nil {
+		// Сообщение могло устареть: Telegram не даёт править старше двух
+		// суток. Человек не должен остаться без ответа из-за этого.
+		h.log.Warn("edit failed, sending a new message", "error", err)
+		return h.send(ctx, chatID, reply)
+	}
+	return nil
 }
 
 // dropStaleButton гасит крутящийся индикатор у человека и не трогает

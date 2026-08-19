@@ -19,7 +19,6 @@ const testSecret = "s3cret"
 
 type fakeScenario struct {
 	starts       []funnel.StartCommand
-	chooses      []funnel.ChooseCommand
 	alternatives []funnel.AlternativeCommand
 	qualifies    []funnel.QualifyCommand
 	reply        funnel.Reply
@@ -36,31 +35,13 @@ func (f *fakeScenario) Start(_ context.Context, cmd funnel.StartCommand) (funnel
 	return f.reply, f.err
 }
 
-func (f *fakeScenario) Choose(_ context.Context, cmd funnel.ChooseCommand) (funnel.Reply, error) {
-	f.chooses = append(f.chooses, cmd)
-	return f.reply, f.err
-}
-
 func (f *fakeScenario) Alternative(_ context.Context, cmd funnel.AlternativeCommand) (funnel.Reply, error) {
 	f.alternatives = append(f.alternatives, cmd)
 	return f.reply, f.err
 }
 
 func (f *fakeScenario) calls() int {
-	return len(f.starts) + len(f.chooses) + len(f.alternatives) + len(f.qualifies)
-}
-
-// routedMaterial — материал, до которого доехала команда, независимо от
-// того, в какую ветку она ушла.
-func routedMaterial(f *fakeScenario) string {
-	switch {
-	case len(f.chooses) > 0:
-		return f.chooses[0].MaterialID
-	case len(f.alternatives) > 0:
-		return f.alternatives[0].CurrentMaterialID
-	default:
-		return ""
-	}
+	return len(f.starts) + len(f.alternatives) + len(f.qualifies)
 }
 
 type sentMessage struct {
@@ -68,9 +49,25 @@ type sentMessage struct {
 	reply  funnel.Reply
 }
 
+type editedMessage struct {
+	chatID    int64
+	messageID int64
+	reply     funnel.Reply
+}
+
 type fakeSender struct {
 	sent     []sentMessage
+	edited   []editedMessage
 	answered []string
+	editErr  error
+}
+
+func (f *fakeSender) EditMessage(_ context.Context, chatID, messageID int64, reply funnel.Reply) error {
+	if f.editErr != nil {
+		return f.editErr
+	}
+	f.edited = append(f.edited, editedMessage{chatID: chatID, messageID: messageID, reply: reply})
+	return nil
 }
 
 func (f *fakeSender) SendMessage(_ context.Context, chatID int64, reply funnel.Reply) error {
@@ -206,46 +203,64 @@ func TestMessageFromBotIsIgnored(t *testing.T) {
 	}
 }
 
-func TestCallbackRoutesToChooseAndAlternative(t *testing.T) {
-	tests := map[string]struct {
-		data           string
-		wantChooses    int
-		wantAlternat   int
-		wantMaterialID string
-	}{
-		"забрать":     {data: "take:metod-6x5", wantChooses: 1, wantMaterialID: funnel.MaterialMethod6x5},
-		"не подходит": {data: "other:metod-6x5", wantAlternat: 1, wantMaterialID: funnel.MaterialMethod6x5},
+func TestOtherCallbackReachesFunnel(t *testing.T) {
+	scenario := &fakeScenario{reply: funnel.Reply{Text: "ответ"}}
+	sender := &fakeSender{}
+	h := newHandler(t, scenario, sender)
+
+	body := `{"update_id":11,"callback_query":{"id":"cb-1","from":{"id":55},"data":"other:metod-6x5","message":{"message_id":500,"chat":{"id":99}}}}`
+	rec := post(t, h, testSecret, body)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200", rec.Code)
 	}
+	if len(scenario.alternatives) != 1 {
+		t.Fatalf("Alternative calls = %d, want 1", len(scenario.alternatives))
+	}
+	if got := scenario.alternatives[0].CurrentMaterialID; got != funnel.MaterialMethod6x5 {
+		t.Errorf("material = %q, want %q", got, funnel.MaterialMethod6x5)
+	}
+	if len(sender.answered) != 1 {
+		t.Errorf("spinner must be stopped, answered = %v", sender.answered)
+	}
+}
 
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			scenario := &fakeScenario{reply: funnel.Reply{Text: "ответ"}}
-			sender := &fakeSender{}
-			h := newHandler(t, scenario, sender)
+// Ответ на нажатие заменяет сообщение, а не добавляет новое: иначе
+// старые кнопки живут вечно и по воронке можно прыгать бесконечно.
+func TestCallbackReplacesTheMessage(t *testing.T) {
+	scenario := &fakeScenario{reply: funnel.Reply{Text: "ответ"}}
+	sender := &fakeSender{}
+	h := newHandler(t, scenario, sender)
 
-			body := `{"update_id":11,"callback_query":{"id":"cb-1","from":{"id":55},"data":"` + tc.data +
-				`","message":{"chat":{"id":99}}}}`
-			rec := post(t, h, testSecret, body)
+	body := `{"update_id":12,"callback_query":{"id":"cb-2","from":{"id":55},"data":"role:solo","message":{"message_id":777,"chat":{"id":99}}}}`
+	post(t, h, testSecret, body)
 
-			if rec.Code != http.StatusOK {
-				t.Fatalf("code = %d, want 200", rec.Code)
-			}
-			if len(scenario.chooses) != tc.wantChooses {
-				t.Errorf("Choose calls = %d, want %d", len(scenario.chooses), tc.wantChooses)
-			}
-			if len(scenario.alternatives) != tc.wantAlternat {
-				t.Errorf("Alternative calls = %d, want %d", len(scenario.alternatives), tc.wantAlternat)
-			}
-			if got := routedMaterial(scenario); got != tc.wantMaterialID {
-				t.Errorf("material = %q, want %q", got, tc.wantMaterialID)
-			}
-			if len(sender.answered) != 1 || sender.answered[0] != "cb-1" {
-				t.Errorf("spinner must be stopped, answered = %v", sender.answered)
-			}
-			if len(sender.sent) != 1 || sender.sent[0].chatID != 99 {
-				t.Errorf("reply must go to the chat, got %+v", sender.sent)
-			}
-		})
+	if len(sender.edited) != 1 {
+		t.Fatalf("want the message edited once, got %d", len(sender.edited))
+	}
+	if sender.edited[0].messageID != 777 || sender.edited[0].chatID != 99 {
+		t.Errorf("edited the wrong message: %+v", sender.edited[0])
+	}
+	if len(sender.sent) != 0 {
+		t.Error("nothing new must be sent when the old message can be replaced")
+	}
+}
+
+// Сообщение старше двух суток Telegram править не даёт. Человек не
+// должен остаться без ответа из-за этого.
+func TestFailedEditFallsBackToNewMessage(t *testing.T) {
+	scenario := &fakeScenario{reply: funnel.Reply{Text: "ответ"}}
+	sender := &fakeSender{editErr: errors.New("message is too old")}
+	h := newHandler(t, scenario, sender)
+
+	body := `{"update_id":13,"callback_query":{"id":"cb-3","from":{"id":55},"data":"role:team","message":{"message_id":777,"chat":{"id":99}}}}`
+	rec := post(t, h, testSecret, body)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("code = %d, want 200", rec.Code)
+	}
+	if len(sender.sent) != 1 {
+		t.Errorf("want a new message after a failed edit, got %d", len(sender.sent))
 	}
 }
 
@@ -254,7 +269,7 @@ func TestCallbackWithoutMessageFallsBackToPrivateChat(t *testing.T) {
 	sender := &fakeSender{}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":12,"callback_query":{"id":"cb-2","from":{"id":55},"data":"take:metod-6x5"}}`
+	body := `{"update_id":14,"callback_query":{"id":"cb-4","from":{"id":55},"data":"role:solo"}}`
 	post(t, h, testSecret, body)
 
 	if len(sender.sent) != 1 || sender.sent[0].chatID != 55 {
@@ -263,12 +278,12 @@ func TestCallbackWithoutMessageFallsBackToPrivateChat(t *testing.T) {
 }
 
 func TestMalformedCallbackIsAnsweredAndDropped(t *testing.T) {
-	for _, data := range []string{"", "garbage", "take:", "unknown:metod-6x5"} {
+	for _, data := range []string{"", "garbage", "other:", "unknown:metod-6x5"} {
 		t.Run(data, func(t *testing.T) {
 			scenario, sender := &fakeScenario{}, &fakeSender{}
 			h := newHandler(t, scenario, sender)
 
-			body := `{"update_id":13,"callback_query":{"id":"cb-3","from":{"id":55},"data":"` + data +
+			body := `{"update_id":15,"callback_query":{"id":"cb-5","from":{"id":55},"data":"` + data +
 				`","message":{"chat":{"id":99}}}}`
 			rec := post(t, h, testSecret, body)
 
@@ -349,7 +364,7 @@ func TestCallbackToRemovedMaterialIsNotRetried(t *testing.T) {
 	sender := &fakeSender{}
 	h := newHandler(t, scenario, sender)
 
-	body := `{"update_id":17,"callback_query":{"id":"cb-4","from":{"id":55},"data":"take:lesson-gone","message":{"chat":{"id":99}}}}`
+	body := `{"update_id":17,"callback_query":{"id":"cb-6","from":{"id":55},"data":"other:lesson-gone","message":{"message_id":1,"chat":{"id":99}}}}`
 	rec := post(t, h, testSecret, body)
 
 	if rec.Code != http.StatusOK {
