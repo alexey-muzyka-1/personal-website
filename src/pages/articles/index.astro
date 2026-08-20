@@ -1,6 +1,12 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { pinnedArticles, restArticles } from '../../data/articles';
+import { botHref, FUNNEL_SOURCE } from '../../data/funnel';
+
+// Пока статей меньше семи, делить их на «закреплённое» и «остальные» —
+// это таксономия дороже содержимого. Один список, закреплённое сверху.
+const list = [...pinnedArticles, ...restArticles];
+const toBot = botHref(FUNNEL_SOURCE.home);
 ---
 
 <Base
@@ -14,23 +20,8 @@ import { pinnedArticles, restArticles } from '../../data/articles';
     </div>
   </header>
 
-  {pinnedArticles.length > 0 && (
-    <section class="pinned" aria-label="Закреплённые статьи">
-      <p class="block-label">Закреплённое</p>
-      {pinnedArticles.map((a) => (
-        <a class="pinned-card" href={a.href}>
-          <h2>{a.title}</h2>
-          <p>{a.what}</p>
-          {a.stat && <p class="pinned-stat">{a.stat}</p>}
-          <span class="go">Читать →</span>
-        </a>
-      ))}
-    </section>
-  )}
-
-  <section class="article-list" aria-label="Остальные статьи">
-    {pinnedArticles.length > 0 && <p class="block-label list-label">Остальные</p>}
-    {restArticles.map((a) => (
+  <section class="article-list" aria-label="Все статьи">
+    {list.map((a) => (
       <a class="article-row" href={a.href}>
         <div class="article-date">{a.dateLabel}</div>
         <div>
@@ -41,71 +32,64 @@ import { pinnedArticles, restArticles } from '../../data/articles';
       </a>
     ))}
   </section>
+
+  {toBot && (
+    <aside class="list-cta" data-cta="articles-end">
+      <div>
+        <h2>Дальше — в Telegram</h2>
+        <p>Бот спросит одно и отдаст тот разбор, который подойдёт.</p>
+      </div>
+      <a class="btn-open" href={toBot}>Забрать разборы ↗</a>
+    </aside>
+  )}
 </Base>
 
 <style>
-  .article-list-head { padding-bottom: 26px; }
-
-  /* Закреплённое — карточка, а не строка списка: это ручной выбор редакции,
-     и он должен читаться иначе, чем лента по датам. */
-  .pinned { margin-top: 28px; }
-  .pinned-card {
-    display: block;
-    padding: 26px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    color: inherit;
-  }
-  .pinned-card + .pinned-card { margin-top: 14px; }
-  .pinned-card:hover { color: inherit; border-color: var(--accent); }
-  .pinned-card:hover h2 { color: var(--accent); }
-  .pinned-card h2 {
-    margin: 0 0 10px;
-    font-size: 1.45rem;
-    line-height: 1.25;
-    text-wrap: balance;
-  }
-  .pinned-card p { margin: 0 0 14px; color: var(--muted); }
-  .pinned-stat {
-    margin: 0 0 16px !important;
-    font-size: 0.82rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .pinned-card .go { font-size: 0.92rem; color: var(--accent); }
-
-  .article-list { margin-top: 28px; }
-  /* Список идёт сразу за карточкой — отбиваем его от неё. */
-  .article-list .list-label { margin-top: 40px; }
-  .article-row:first-of-type { border-top: 1px solid var(--line); }
+  .article-list-head { padding-bottom: 8px; }
+  .article-list { margin-top: 34px; }
   .article-row {
     display: grid;
-    grid-template-columns: 110px 1fr auto;
-    gap: 22px;
+    grid-template-columns: 120px 1fr auto;
+    gap: 26px;
     align-items: start;
-    padding: 26px 0;
+    padding: 30px 0;
     border-bottom: 1px solid var(--line);
   }
+  .article-row:first-of-type { border-top: 1px solid var(--line); }
   .article-row:hover { color: inherit; }
   .article-row:hover h2 { color: var(--accent); }
   .article-date {
     color: var(--muted);
-    font-size: 0.82rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
     font-variant-numeric: tabular-nums;
-    padding-top: 4px;
+    padding-top: 6px;
   }
   h2 {
     margin: 0 0 8px;
-    font-size: 1.2rem;
+    font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
   }
-  p {
-    color: var(--muted);
-    margin: 0;
+  p { color: var(--muted); margin: 0; max-width: 62ch; }
+
+  .list-cta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-top: 56px;
+    padding-top: 34px;
+    border-top: 1px solid var(--line);
   }
-  @media (max-width: 600px) {
-    .article-row {
-      grid-template-columns: 1fr auto;
-      gap: 8px 16px;
-    }
+  .list-cta h2 { margin: 0 0 6px; }
+  .list-cta p { margin: 0; }
+
+  @media (max-width: 640px) {
+    .article-row { grid-template-columns: 1fr auto; gap: 8px 16px; padding: 24px 0; }
     .article-date { grid-column: 1 / -1; }
+    .list-cta { display: block; }
+    .list-cta .btn-open { margin-top: 18px; }
   }
 </style>
