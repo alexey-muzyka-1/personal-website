@@ -54,19 +54,25 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
 
 .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 20px 72px; }
 
-/* Шапка: где я и куда ещё можно пойти. Одна строка, без вложенных меню —
-   страниц пять, прятать их некуда и незачем. */
-.top {
-  display: flex; flex-wrap: wrap; gap: 10px 18px;
-  align-items: baseline; margin: 0 0 18px;
-  padding-bottom: 14px; border-bottom: 1px solid var(--line);
+/* Шапка в два уровня. Название и разделы в одной строке читались как
+   пять равных пунктов, хотя «Личная воронка» это не раздел, а всё
+   вместе. Теперь сверху имя и время съёмки, под ними — разделы. */
+.top { margin: 0 0 20px; padding-bottom: 0; border-bottom: 1px solid var(--line); }
+.top .line {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  align-items: baseline; margin: 0 0 10px;
 }
-.brand { font-weight: 600; text-decoration: none; color: var(--fg); }
-.tabs { display: flex; flex-wrap: wrap; gap: 14px; }
-.tabs a { text-decoration: none; color: var(--muted); font-size: .92rem; }
-.tabs a:hover { color: var(--fg); }
-.tabs a[aria-current="page"] { color: var(--fg); font-weight: 600; }
+.brand { font-size: 1.1rem; font-weight: 600; text-decoration: none; color: var(--fg); }
 .top .grow { margin-left: auto; color: var(--muted); font-size: .82rem; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 20px; }
+.tabs a {
+  text-decoration: none; color: var(--muted); font-size: .92rem;
+  padding: 0 0 10px; margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+}
+.tabs a:hover { color: var(--fg); }
+.tabs a[aria-current="page"] { color: var(--fg); font-weight: 600; border-bottom-color: var(--accent); }
 
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 18px; }
 .pill {
@@ -143,6 +149,44 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 
 .dl dt { color: var(--muted); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
 .dl dd { margin: 2px 0 14px; }
+
+/* Цепочка сообщений. Реплика бота показывается тем же блоком, каким её
+   видит человек в Telegram: таблицей «шаг / текст / кнопки» цепочку
+   читать невозможно, а решение о словах принимается именно по ней. */
+.chain { display: grid; gap: 18px; }
+.msg { display: grid; grid-template-columns: 2.2rem 1fr; gap: 14px; align-items: start; }
+.msg .n {
+  width: 2.2rem; height: 2.2rem; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--pick); border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums; font-size: .85rem; color: var(--muted);
+}
+.msg .head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; margin-bottom: 6px; }
+.msg .head b { font-weight: 600; }
+.bubble {
+  background: var(--pick); border: 1px solid var(--line);
+  border-radius: 4px 14px 14px 14px; padding: 12px 14px;
+  max-width: 46rem; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bubble b { font-weight: 600; }
+.bubble blockquote {
+  margin: 8px 0; padding-left: 12px;
+  border-left: 2px solid var(--line); color: var(--muted);
+}
+.keys { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.key {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 8px; font-size: .85rem;
+  border: 1px solid var(--accent); color: var(--accent); text-decoration: none;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.key.out { border-style: dashed; }
+.branch {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  background: var(--pick); border: 1px solid var(--line);
+  font-size: .74rem; color: var(--muted);
+}
+.wrote { margin-top: 8px; font-size: .8rem; color: var(--muted); }
 
 .back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; font-size: .88rem; }
 

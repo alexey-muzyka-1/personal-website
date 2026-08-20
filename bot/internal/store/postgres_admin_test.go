@@ -27,6 +27,12 @@ import (
 //	  -p 55432:5432 postgres:17-alpine
 //	TEST_DATABASE_URL='postgres://postgres:test@localhost:55432/funnel' go test ./internal/store/
 
+// Postgres обязан удовлетворять тому, что нужно админке. Проверка живёт
+// в тесте, а не рядом с запросами: сам пакет store админку не импортирует,
+// иначе получается цикл — админка читает сценарий бота, сценарий гоняется
+// на памяти из store, а store смотрел бы обратно на админку.
+var _ admin.Reader = (*store.Postgres)(nil)
+
 var start = time.Date(2026, 8, 20, 9, 0, 0, 0, time.UTC)
 
 func openDB(t *testing.T) (*store.Postgres, *pgxpool.Pool) {

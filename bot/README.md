@@ -27,7 +27,8 @@
 |---|---|
 | `internal/funnel` | сценарий и тексты. Не знает про Telegram и про базу |
 | `internal/telegram` | webhook, разбор update, вызовы Bot API |
-| `internal/store` | Postgres (боевой) и Memory (тесты) |
+| `internal/store` | Postgres: база лидов |
+| `internal/memstore` | то же в памяти — для тестов и прогона сценария |
 | `internal/admin` | JSON для админки и раздача её страниц |
 | `admin-ui` | сам интерфейс админки на Astro, собирается в статику |
 | `cmd/bot` | конфигурация из окружения, HTTP-сервер, graceful shutdown |
@@ -105,8 +106,8 @@ webhook важнее админки и падать из-за неё не дол
 |---|---|
 | `POST /telegram/webhook` | приём update, только с верным секретом |
 | `GET /r/{token}` | переход на статью со счётчиком |
-| `GET /admin/` | админка: обзор, источники, люди, маршруты |
-| `GET /admin/api/*` | данные для неё: overview, people, person, routes |
+| `GET /admin/` | админка: обзор, источники, сообщения, люди |
+| `GET /admin/api/*` | данные для неё: overview, sources, scenario, people, person |
 | `GET /admin/export.xlsx` | тот же срез книгой Excel: лист «Люди» и лист «Шаги» |
 | `GET /healthz` | проверка живости для хостинга |
 

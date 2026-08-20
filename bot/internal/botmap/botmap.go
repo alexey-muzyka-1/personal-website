@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
-	"github.com/alexey-muzyka-1/personal-website/bot/internal/store"
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/memstore"
 )
 
 const (
@@ -266,7 +266,7 @@ func renderEdgeCases(ctx context.Context, b *strings.Builder) error {
 // session — один человек и его бот на памяти.
 type session struct {
 	funnel  *funnel.Funnel
-	store   *store.Memory
+	store   *memstore.Memory
 	catalog funnel.Catalog
 	user    funnel.User
 	update  int64
@@ -275,7 +275,7 @@ type session struct {
 }
 
 func newSession() (*session, error) {
-	mem := store.NewMemory()
+	mem := memstore.NewMemory()
 	catalog := funnel.DefaultCatalog()
 	at := time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
 

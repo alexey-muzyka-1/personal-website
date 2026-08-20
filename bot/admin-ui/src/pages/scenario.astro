@@ -1,0 +1,127 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Сообщения" page="scenario">
+  <section class="card">
+    <h2>Что бот говорит, шаг за шагом</h2>
+    <p class="lede" style="margin:0 0 4px">
+      Реплики не переписаны сюда руками: страница прогоняет настоящий сценарий и показывает
+      то, что бот действительно ответит. Разойтись с ним она не может.
+    </p>
+    <p class="lede" style="margin:0">
+      Править слова — в <code>bot/internal/funnel</code>. Здесь видно, что получится.
+    </p>
+  </section>
+
+  <div data-chain></div>
+
+  <section class="card">
+    <h2>Что записывается в базу</h2>
+    <div data-events></div>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, el } from '../lib/api.ts';
+
+  const host = document.querySelector('[data-chain]');
+
+  api('scenario')
+    .then((d) => {
+      chain(d.screens);
+      events(d.steps);
+    })
+    .catch((err) => fail(host, err));
+
+  // Реплики размечены как в Telegram: <b> и <blockquote>. Разбираем их
+  // сами и собираем узлы, а не вставляем строку в innerHTML — текст
+  // приходит из кода бота, но привычка вставлять чужие строки в разметку
+  // это ровно то, из-за чего потом ищут XSS.
+  function rich(text) {
+    const box = el('div', { class: 'bubble' });
+    const re = /<(b|blockquote)>([\s\S]*?)<\/\1>/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) box.append(document.createTextNode(text.slice(last, m.index)));
+      box.append(el(m[1], { text: m[2] }));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) box.append(document.createTextNode(text.slice(last)));
+    return box;
+  }
+
+  function chain(screens) {
+    if (!host) return;
+    host.innerHTML = '';
+
+    let step = 0;
+    let card = null;
+
+    for (const s of screens) {
+      // Новый шаг — новая карточка. Ветки одного шага лежат внутри одной:
+      // так видно, что это развилка, а не пять сообщений подряд.
+      if (s.step !== step) {
+        step = s.step;
+        card = el('section', { class: 'card' }, el('div', { class: 'chain' }));
+        host.append(card);
+      }
+      const chainBox = card.querySelector('.chain');
+
+      const head = el('div', { class: 'head' },
+        el('b', { text: s.title }),
+        el('span', { class: 'muted', style: 'font-size:.8rem' }, s.trigger));
+
+      const bubble = rich(s.text);
+
+      if (s.buttons?.length) {
+        const keys = el('div', { class: 'keys' });
+        for (const b of s.buttons) {
+          keys.append(b.url
+            ? el('a', { class: 'key out', href: b.url, text: b.label })
+            : el('span', { class: 'key' }, b.label,
+                b.leads ? el('span', { class: 'muted', text: ` → шаг ${b.leads}` }) : null));
+        }
+        bubble.append(keys);
+      }
+
+      const body = el('div', {}, head, bubble);
+      if (s.events?.length) {
+        body.append(el('div', { class: 'wrote' },
+          'пишет в базу: ',
+          ...s.events.map((e, i) => el('span', {}, i ? ', ' : '', el('code', { text: e })))));
+      }
+      if (s.note) body.append(el('p', { class: 'lede', style: 'margin:8px 0 0', text: s.note }));
+
+      chainBox.append(el('div', { class: 'msg' }, el('div', { class: 'n', text: s.step }), body));
+    }
+  }
+
+  function events(steps) {
+    const box = document.querySelector('[data-events]');
+    if (!box) return;
+    box.innerHTML = '';
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Шаг воронки' }),
+        el('th', { scope: 'col', text: 'Событие' }),
+        el('th', { scope: 'col', text: 'Оговорка' }))));
+
+    const body = el('tbody');
+    for (const s of steps) {
+      body.append(el('tr', {},
+        el('td', { text: s.label }),
+        el('td', {}, el('code', { text: s.name })),
+        el('td', {}, s.note
+          ? el('span', { class: 'note', text: s.note })
+          : el('span', { class: 'muted', text: '—' }))));
+    }
+    table.append(body);
+    box.append(table);
+    box.append(el('p', { class: 'lede' },
+      'Плюс на каждый /start пишется касание в attributions. Таблица только пополняется: ',
+      'первое касание остаётся первым навсегда, приход из другого Reel не затирает историю.'));
+  }
+</script>

@@ -10,8 +10,6 @@ import (
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/admin"
 )
 
-var _ admin.Reader = (*Postgres)(nil)
-
 // Чтение для страницы воронки. Запросы идут мимо транзакций записи: это
 // отчёт, ему не нужна ни атомарность, ни блокировки.
 //

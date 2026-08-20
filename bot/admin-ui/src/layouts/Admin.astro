@@ -5,7 +5,7 @@ import '../styles/admin.css';
 
 interface Props {
   title: string;
-  page: 'funnel' | 'sources' | 'people' | 'routes';
+  page: 'funnel' | 'sources' | 'scenario' | 'people';
 }
 const { title, page } = Astro.props;
 
@@ -13,8 +13,8 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const tabs = [
   { id: 'funnel', href: base, label: 'Обзор' },
   { id: 'sources', href: base + 'sources/', label: 'Источники' },
+  { id: 'scenario', href: base + 'scenario/', label: 'Сообщения' },
   { id: 'people', href: base + 'people/', label: 'Люди' },
-  { id: 'routes', href: base + 'routes/', label: 'Маршруты' },
 ];
 ---
 
@@ -29,13 +29,15 @@ const tabs = [
 <body>
   <div class="wrap">
     <header class="top">
-      <a class="brand" href={base}>Личная воронка</a>
+      <div class="line">
+        <a class="brand" href={base}>Личная воронка</a>
+        <span class="grow" data-stamp></span>
+      </div>
       <nav class="tabs">
         {tabs.map((t) => (
           <a href={t.href} aria-current={t.id === page ? 'page' : undefined}>{t.label}</a>
         ))}
       </nav>
-      <span class="grow" data-stamp></span>
     </header>
 
     <slot />

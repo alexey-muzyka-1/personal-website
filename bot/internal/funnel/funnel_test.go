@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
-	"github.com/alexey-muzyka-1/personal-website/bot/internal/store"
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/memstore"
 )
 
 const (
@@ -42,10 +42,10 @@ func newFunnel(t *testing.T, db funnel.DB) *funnel.Funnel {
 	return f
 }
 
-func newMemoryFunnel(t *testing.T) (*funnel.Funnel, *store.Memory) {
+func newMemoryFunnel(t *testing.T) (*funnel.Funnel, *memstore.Memory) {
 	t.Helper()
 
-	mem := store.NewMemory()
+	mem := memstore.NewMemory()
 	return newFunnel(t, mem), mem
 }
 
@@ -57,7 +57,7 @@ func eventNames(events []funnel.Event) []string {
 	return names
 }
 
-func findEvent(t *testing.T, mem *store.Memory, name string) funnel.Event {
+func findEvent(t *testing.T, mem *memstore.Memory, name string) funnel.Event {
 	t.Helper()
 
 	for _, e := range mem.Events() {
@@ -365,7 +365,7 @@ func (s *failingStore) AppendEvent(ctx context.Context, e funnel.Event) error {
 // Главное свойство: сбой посреди шага не должен съесть лида. Update
 // остаётся необработанным, и повтор от Telegram проходит целиком.
 func TestFailedStepLeavesUpdateRetryable(t *testing.T) {
-	mem := store.NewMemory()
+	mem := memstore.NewMemory()
 	db := &failingDB{inner: mem, failOn: funnel.EventBotStarted}
 	f := newFunnel(t, db)
 	ctx := context.Background()
@@ -403,7 +403,7 @@ func TestNewRejectsBrokenConfig(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			if _, err := funnel.New(store.NewMemory(), funnel.DefaultCatalog(), tc.site, tc.link); err == nil {
+			if _, err := funnel.New(memstore.NewMemory(), funnel.DefaultCatalog(), tc.site, tc.link); err == nil {
 				t.Error("want error, got nil")
 			}
 		})
