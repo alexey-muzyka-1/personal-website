@@ -103,6 +103,12 @@
       "skillPath": "skills/redesign-skill/SKILL.md",
       "computedHash": "b405eee0e0e80fc243f731d9aa368bca307e356db7e6157d27101d369dac6726"
     },
+    "sales-funnel-blueprint": {
+      "source": "autonnel/autonnel-skills",
+      "sourceType": "github",
+      "skillPath": "sales-funnel-blueprint/SKILL.md",
+      "computedHash": "37229fe4da4ead9d0f61748bcc96879e2cb2aaa9a189d9130a5b273710fd1818"
+    },
     "secure-vps-setup": {
       "source": "tibobfd/skills-secure-vps-for-beginners",
       "sourceType": "github",
