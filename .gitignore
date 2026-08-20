@@ -12,6 +12,9 @@ npm-debug.log*
 .DS_Store
 .vscode/
 
+# кэш хука impeccable: локальный, с абсолютными путями и id сессий
+.impeccable/hook.cache.json
+
 # env
 .env
 .env.production
