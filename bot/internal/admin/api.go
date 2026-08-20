@@ -3,8 +3,10 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/botmap"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 )
 
@@ -228,46 +230,73 @@ func (h *Handler) ServePerson(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ServeRoutes — какая метка какой материал отдаёт. Отвечает на вопрос
-// «что бот вообще показывает», не открывая исходники.
-func (h *Handler) ServeRoutes(w http.ResponseWriter, r *http.Request) {
+// ServeSources — откуда приходят люди и что каждая метка им отдаёт.
+//
+// Раньше это были две страницы: «источники» с цифрами и «маршруты» с
+// материалами. Разделение выглядело логичным в коде и бессмысленным в
+// работе: вопрос «этот Reel окупается?» требует смотреть обе сразу —
+// сколько привёл и что именно обещал. Здесь они в одной строке.
+func (h *Handler) ServeSources(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	filter, days := h.parseFilter(r, h.now())
 
-	// Живые метки из базы подмешиваются к описанным в коде: метка Reel
-	// может прийти раньше, чем для неё заведут правило, и такую строку
-	// важно увидеть, а не потерять.
-	var live []string
-	if sources, err := h.reader.Sources(ctx, Filter{Hidden: h.hidden}); err == nil {
-		for _, s := range sources {
-			live = append(live, s.ID)
-		}
+	// Цифры считаются по выбранному срезу, а таблица маршрутов — нет:
+	// метка существует независимо от того, приходил ли по ней кто-то за
+	// последнюю неделю. Иначе метка без трафика исчезала бы ровно тогда,
+	// когда важнее всего заметить, что она молчит.
+	stats, err := h.reader.Sources(ctx, filter)
+	if err != nil {
+		h.failJSON(w, "sources", err)
+		return
+	}
+	all, err := h.reader.Sources(ctx, Filter{Hidden: h.hidden})
+	if err != nil {
+		h.failJSON(w, "all sources", err)
+		return
 	}
 
-	type apiRoute struct {
+	byID := make(map[string]Source, len(stats))
+	for _, s := range stats {
+		byID[s.ID] = s
+	}
+	live := make([]string, 0, len(all))
+	for _, s := range all {
+		live = append(live, s.ID)
+	}
+
+	type apiChannel struct {
 		Source      string `json:"source"`
+		Started     int    `json:"started"`
+		Opened      int    `json:"opened"`
+		Offered     int    `json:"offered"`
+		Waitlist    int    `json:"waitlist"`
 		Material    string `json:"material"`
 		Title       string `json:"title"`
 		Path        string `json:"path"`
-		Button      string `json:"button"`
-		Pitch       string `json:"pitch"`
 		Fallback    bool   `json:"fallback"`
 		AlreadyRead string `json:"alreadyRead"`
 		DeepLink    string `json:"deepLink"`
 	}
 
 	routes := h.catalog.RouteTable(live...)
-	out := make([]apiRoute, 0, len(routes))
+	out := make([]apiChannel, 0, len(routes))
 	for _, rt := range routes {
 		link := h.botLink
 		if rt.Source != "" && link != "" {
 			link += "?start=" + rt.Source
 		}
-		out = append(out, apiRoute{
-			Source: rt.Source, Material: rt.Material.ID, Title: rt.Material.Title,
-			Path: rt.Material.Path, Button: rt.Material.Button, Pitch: rt.Material.Pitch,
+		s := byID[rt.Source]
+		out = append(out, apiChannel{
+			Source: rt.Source, Started: s.Started, Opened: s.Opened,
+			Offered: s.Offered, Waitlist: s.Waitlist,
+			Material: rt.Material.ID, Title: rt.Material.Title, Path: rt.Material.Path,
 			Fallback: rt.Fallback, AlreadyRead: rt.AlreadyRead, DeepLink: link,
 		})
 	}
+
+	// Сверху те, кто реально приводит людей: молчащие метки нужны, но
+	// разбираться каждый день приходится с работающими.
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Started > out[j].Started })
 
 	type apiMaterial struct {
 		ID     string `json:"id"`
@@ -286,12 +315,30 @@ func (h *Handler) ServeRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{
-		"routes":    out,
+		"filter":    apiFilter{Source: filter.Source, Stage: filter.Stage, Days: days},
+		"channels":  out,
 		"materials": materials,
 		"fallback":  h.catalog.Fallback().ID,
-		"steps":     stepNames(),
 		"botLink":   h.botLink,
 		"siteBase":  h.siteBase,
+	})
+}
+
+// ServeScenario — цепочка сообщений: что бот говорит на каждом шаге.
+//
+// Собирается прогоном настоящего сценария, а не описанием рядом с ним:
+// текст берётся из ответа воронки, поэтому страница не может рассказать
+// про бота то, чего он не делает.
+func (h *Handler) ServeScenario(w http.ResponseWriter, r *http.Request) {
+	screens, err := botmap.Scenario(r.Context())
+	if err != nil {
+		h.failJSON(w, "scenario", err)
+		return
+	}
+
+	writeJSON(w, map[string]any{
+		"screens": screens,
+		"steps":   stepNames(),
 	})
 }
 

@@ -104,7 +104,8 @@ func call(t *testing.T, r *stub, serve func(*admin.Handler) http.HandlerFunc, ta
 func overview(h *admin.Handler) http.HandlerFunc { return h.ServeOverview }
 func people(h *admin.Handler) http.HandlerFunc   { return h.ServePeople }
 func person(h *admin.Handler) http.HandlerFunc   { return h.ServePerson }
-func routes(h *admin.Handler) http.HandlerFunc   { return h.ServeRoutes }
+func sources(h *admin.Handler) http.HandlerFunc  { return h.ServeSources }
+func scenario(h *admin.Handler) http.HandlerFunc { return h.ServeScenario }
 
 func fullFunnel() *stub {
 	return &stub{
@@ -377,10 +378,10 @@ func TestStagesComeWithLabels(t *testing.T) {
 // Страница маршрутов собирается из того же каталога, по которому отвечает
 // бот, поэтому разойтись с ним она не может.
 func TestRoutesMatchTheCatalog(t *testing.T) {
-	_, body := call(t, fullFunnel(), routes, "/admin/api/routes")
+	_, body := call(t, fullFunnel(), sources, "/admin/api/sources")
 
 	bySource := map[string]map[string]any{}
-	for _, raw := range body["routes"].([]any) {
+	for _, raw := range body["channels"].([]any) {
 		r := raw.(map[string]any)
 		bySource[r["source"].(string)] = r
 	}
@@ -406,16 +407,48 @@ func TestRoutesMatchTheCatalog(t *testing.T) {
 	}
 }
 
+// Цепочка сообщений собирается прогоном настоящего сценария: страница не
+// может рассказать про бота то, чего он не делает.
+func TestScenarioComesFromTheRealBot(t *testing.T) {
+	_, body := call(t, fullFunnel(), scenario, "/admin/api/scenario")
+
+	screens, ok := body["screens"].([]any)
+	if !ok || len(screens) < 5 {
+		t.Fatalf("цепочка слишком короткая: %v", body["screens"])
+	}
+
+	first := screens[0].(map[string]any)
+	if first["text"] == "" {
+		t.Error("первая реплика пустая")
+	}
+	if len(first["buttons"].([]any)) == 0 {
+		t.Error("у первой реплики нет кнопок")
+	}
+
+	// Все три ветки вопроса должны быть показаны: иначе страница врёт о
+	// том, что бот отвечает всем одинаково.
+	branches := map[string]bool{}
+	for _, raw := range screens {
+		s := raw.(map[string]any)
+		if b, _ := s["branch"].(string); b != "" {
+			branches[b] = true
+		}
+	}
+	if len(branches) != 3 {
+		t.Errorf("веток показано %d, ожидали три: %v", len(branches), branches)
+	}
+}
+
 // Живая метка из базы попадает в таблицу, даже если правила для неё нет:
 // Reel запускают раньше, чем заводят маршрут.
 func TestLiveSourceAppearsInRoutes(t *testing.T) {
 	r := fullFunnel()
 	r.sources = append(r.sources, admin.Source{ID: "reel_20260820_razbor_01", Started: 2})
 
-	_, body := call(t, r, routes, "/admin/api/routes")
+	_, body := call(t, r, sources, "/admin/api/sources")
 
 	found := false
-	for _, raw := range body["routes"].([]any) {
+	for _, raw := range body["channels"].([]any) {
 		if raw.(map[string]any)["source"] == "reel_20260820_razbor_01" {
 			found = true
 			if raw.(map[string]any)["fallback"] != true {
@@ -447,7 +480,7 @@ func TestUIIsBuiltIn(t *testing.T) {
 		t.Skip("интерфейс не собран: cd bot/admin-ui && npm ci && npm run build")
 	}
 
-	for _, path := range []string{"/admin/", "/admin/sources/", "/admin/people/", "/admin/routes/", "/admin/person/"} {
+	for _, path := range []string{"/admin/", "/admin/sources/", "/admin/scenario/", "/admin/people/", "/admin/person/"} {
 		rec := httptest.NewRecorder()
 		ui.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
