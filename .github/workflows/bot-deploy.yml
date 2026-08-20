@@ -64,6 +64,20 @@ jobs:
           ssh root@${{ secrets.FUNNEL_HOST }} \
             '/opt/funnel/deploy/compose.sh up -d --build'
 
+      # Конфиг Caddy у контейнера не меняется, поэтому compose его не
+      # трогает: правка в Caddyfile доехала бы на диск и осталась лежать.
+      # Один раз это уже стоило разбирательства — /admin/export.xlsx
+      # отдавал 404 при верном конфиге на сервере.
+      #
+      # reload штатный: без разрыва соединений и без потери сертификатов.
+      # Падать деплою из-за него незачем — маршруты проверяются ниже.
+      - name: Reload Caddy
+        run: |
+          ssh root@${{ secrets.FUNNEL_HOST }} \
+            '/opt/funnel/deploy/compose.sh exec -T caddy \
+               caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile' \
+            || echo "не удалось перечитать конфиг Caddy"
+
       # Миграции сознательно не здесь: схема базы лидов меняется только
       # руками, командой make migrate ENV=prod.
 

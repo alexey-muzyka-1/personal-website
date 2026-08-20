@@ -1,0 +1,134 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Воронка" page="funnel">
+  <div class="bar" data-slice></div>
+
+  <div class="tiles" data-tiles></div>
+
+  <section class="card">
+    <h2>Шаги</h2>
+    <div data-steps></div>
+    <p class="lede">
+      Платного шага в воронке пока нет. Последнее, что считается честно, — запись на эфир,
+      и это интерес, а не деньги.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Как приходили по дням</h2>
+    <div data-chart></div>
+  </section>
+
+  <section class="card">
+    <h2>Кого куда привели</h2>
+    <div data-segments></div>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, readSlice, href, el, share } from '../lib/api.ts';
+  import { renderSlice } from '../lib/slice.ts';
+  import { renderDaily } from '../lib/chart.ts';
+
+  const slice = readSlice();
+  renderSlice(document.querySelector('[data-slice]'), '', slice);
+
+  const steps = document.querySelector('[data-steps]');
+
+  api('overview')
+    .then((d) => {
+      tiles(d);
+      funnel(d.steps);
+      renderDaily(document.querySelector('[data-chart]'), d.daily);
+      segments(d.segments);
+    })
+    .catch((err) => fail(steps, err));
+
+  function tiles(d) {
+    const host = document.querySelector('[data-tiles]');
+    if (!host) return;
+
+    const by = (name) => d.steps.find((s) => s.name === name) ?? { people: 0 };
+    const came = by('bot_started').people;
+    const opened = by('material_opened').people;
+    const offered = by('offer_shown').people;
+    const joined = by('waitlist_joined').people;
+
+    // Под каждой цифрой написано, от чего считается доля: процент без
+    // знаменателя не с чем соотнести.
+    const cells = [
+      ['Пришло людей', came, d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
+      ['Открыли разбор', opened, came ? `${share(opened, came)} от пришедших` : ''],
+      ['Дошли до предложения', offered, came ? `${share(offered, came)} от пришедших` : ''],
+      ['Записались на эфир', joined, offered ? `${share(joined, offered)} от увидевших` : ''],
+    ];
+
+    host.innerHTML = '';
+    for (const [k, v, s] of cells) {
+      host.append(el('div', { class: 'tile' },
+        el('div', { class: 'k', text: k }),
+        el('div', { class: 'v', text: v }),
+        el('div', { class: 's', text: s })));
+    }
+  }
+
+  function funnel(list) {
+    if (!steps) return;
+    steps.innerHTML = '';
+
+    const box = el('div', { class: 'bars' });
+    for (const s of list) {
+      const width = s.hasTop ? Math.max(s.fromTop, s.people ? 1 : 0) : 0;
+      box.append(el('div', { class: 'row' },
+        el('div', { class: 'name' },
+          s.label,
+          s.note ? el('div', { class: 'note', text: s.note }) : null),
+        el('div', { class: 'track' }, el('div', { class: 'fill', style: `width:${width}%` })),
+        el('div', { class: 'val' },
+          String(s.people),
+          ' ',
+          el('span', { class: 'of', text: s.hasPrev ? s.fromPrev + '%' : '—' }))));
+    }
+    steps.append(box);
+    steps.append(el('p', { class: 'lede' },
+      'В скобках — доля от предыдущего шага: именно она показывает, где теряются люди. ',
+      'Длина полосы — доля от пришедших.'));
+  }
+
+  function segments(list) {
+    const host = document.querySelector('[data-segments]');
+    if (!host) return;
+    host.innerHTML = '';
+
+    if (!list.length) {
+      host.append(el('p', { class: 'empty', text: 'Никто ещё не ответил на вопрос о состоянии. Бот задаёт его один раз — после того, как человек открыл разбор.' }));
+      return;
+    }
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Состояние' }),
+        el('th', { scope: 'col', class: 'num', text: 'Людей' }),
+        el('th', { scope: 'col', class: 'num', text: 'На эфире' }))));
+
+    const body = el('tbody');
+    for (const s of list) {
+      const value = s.stage === '' ? '-' : s.stage;
+      const active = slice.stage === value;
+      body.append(el('tr', { class: active ? 'picked' : '' },
+        el('td', {}, el('a', {
+          class: 'row-link',
+          href: href('people', slice, { stage: active ? '' : value }),
+          'aria-current': active ? 'true' : undefined,
+          text: s.label,
+        })),
+        el('td', { class: 'num', text: s.people }),
+        el('td', { class: 'num' }, s.waitlist ? String(s.waitlist) : el('span', { class: 'muted', text: '0' }))));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede', text: 'Клик по состоянию открывает этих людей списком.' }));
+  }
+</script>

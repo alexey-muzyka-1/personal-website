@@ -1,0 +1,57 @@
+---
+// Каркас всех страниц админки: шапка, навигация, общий язык оформления.
+// Данные страницы забирают сами — здесь только рамка.
+import '../styles/admin.css';
+
+interface Props {
+  title: string;
+  page: 'funnel' | 'sources' | 'people' | 'routes';
+}
+const { title, page } = Astro.props;
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const tabs = [
+  { id: 'funnel', href: base, label: 'Обзор' },
+  { id: 'sources', href: base + 'sources/', label: 'Источники' },
+  { id: 'people', href: base + 'people/', label: 'Люди' },
+  { id: 'routes', href: base + 'routes/', label: 'Маршруты' },
+];
+---
+
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{title} · воронка</title>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href={base}>Личная воронка</a>
+      <nav class="tabs">
+        {tabs.map((t) => (
+          <a href={t.href} aria-current={t.id === page ? 'page' : undefined}>{t.label}</a>
+        ))}
+      </nav>
+      <span class="grow" data-stamp></span>
+    </header>
+
+    <slot />
+  </div>
+
+  <script>
+    // Время съёмки в шапке. Ходит на тот же обзор, что и страницы, но
+    // страница без данных не должна из-за этого падать.
+    import { api } from '../lib/api.ts';
+    api('overview')
+      .then((d) => {
+        const el = document.querySelector('[data-stamp]');
+        if (!el) return;
+        el.textContent = 'снято ' + d.now + (d.hidden ? ' · скрыт' + (d.hidden === 1 ? ' 1 тестовый аккаунт' : 'о ' + d.hidden + ' тестовых аккаунтов') : '');
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

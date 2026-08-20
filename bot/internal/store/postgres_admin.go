@@ -313,3 +313,54 @@ func (p *Postgres) Timeline(ctx context.Context, f admin.Filter, limit int) ([]a
 	}
 	return timeline, nil
 }
+
+// Daily — динамика по дням. Таблица показывает итог, график — набран он
+// равномерно или одним днём; на выборке в десяток человек это разные
+// выводы о том, работает ли источник.
+//
+// Дни без людей остаются нулями, а не пропадают: разрыв в ряду читается
+// как «данных нет», хотя на самом деле никто не приходил.
+func (p *Postgres) Daily(ctx context.Context, f admin.Filter) ([]admin.Day, error) {
+	const query = cohort + `,
+		bounds as (
+			select
+				coalesce(min(first_seen_at), now()) as lo,
+				coalesce(max(first_seen_at), now()) as hi
+			from people
+		),
+		days as (
+			select generate_series(
+				date_trunc('day', (select lo from bounds) at time zone 'Europe/Moscow'),
+				date_trunc('day', (select hi from bounds) at time zone 'Europe/Moscow'),
+				interval '1 day'
+			)::date as day
+		)
+		select
+			to_char(d.day, 'YYYY-MM-DD') as date,
+			count(p.telegram_id)         as people,
+			count(*) filter (where p.telegram_id is not null and exists(
+				select 1 from events e
+				where e.telegram_id = p.telegram_id and e.name = 'material_opened'
+			)) as opened,
+			count(*) filter (where p.telegram_id is not null and exists(
+				select 1 from events e
+				where e.telegram_id = p.telegram_id and e.name = 'waitlist_joined'
+			)) as waitlist
+		from days d
+		left join people p
+			on (p.first_seen_at at time zone 'Europe/Moscow')::date = d.day
+		group by d.day
+		order by d.day`
+
+	rows, err := p.pool.Query(ctx, query, args(f)...)
+	if err != nil {
+		return nil, fmt.Errorf("querying daily: %w", err)
+	}
+	defer rows.Close()
+
+	daily, err := pgx.CollectRows(rows, pgx.RowToStructByName[admin.Day])
+	if err != nil {
+		return nil, fmt.Errorf("collecting daily: %w", err)
+	}
+	return daily, nil
+}

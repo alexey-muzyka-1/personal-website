@@ -1,0 +1,96 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Люди" page="people">
+  <div class="bar" data-slice></div>
+
+  <section class="card">
+    <h2>Люди</h2>
+    <p class="bar">
+      <input class="search" type="search" placeholder="имя, @ник, метка или id" data-search />
+      <span class="muted" data-count></span>
+    </p>
+    <div data-people></div>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, readSlice, href, el } from '../lib/api.ts';
+  import { renderSlice } from '../lib/slice.ts';
+
+  const slice = readSlice();
+  renderSlice(document.querySelector('[data-slice]'), 'people', slice);
+
+  const host = document.querySelector('[data-people]');
+  const search = document.querySelector('[data-search]');
+  const count = document.querySelector('[data-count]');
+  let people = [];
+
+  api('people')
+    .then((d) => {
+      people = d.people;
+      if (d.truncated) {
+        host?.before(el('p', { class: 'lede', text: 'Показана первая тысяча — дальше список обрезан.' }));
+      }
+      render();
+    })
+    .catch((err) => fail(host, err));
+
+  search?.addEventListener('input', render);
+
+  function render() {
+    if (!host) return;
+    const q = (search?.value ?? '').trim().toLowerCase();
+
+    // Поиск идёт по тому, что человек видит в строке: ник, имя, метка, id.
+    // Состояние сюда не входит — для него есть фильтр, а совпадение по
+    // подстроке в нём давало бы случайные попадания.
+    const rows = q
+      ? people.filter((p) =>
+          [p.handle, p.firstName, p.source, String(p.telegramId)]
+            .join(' ').toLowerCase().includes(q))
+      : people;
+
+    if (count) {
+      count.textContent = q ? `${rows.length} из ${people.length}` : `${people.length}`;
+    }
+
+    host.innerHTML = '';
+    if (!rows.length) {
+      host.append(el('p', { class: 'empty' },
+        people.length
+          ? 'Никто не подошёл под поиск.'
+          : 'Здесь появятся люди: кто пришёл, из какой метки и до какого шага дошёл. Каждого можно открыть и увидеть его путь.'));
+      return;
+    }
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Кто' }),
+        el('th', { scope: 'col', text: 'Пришёл' }),
+        el('th', { scope: 'col', text: 'Откуда' }),
+        el('th', { scope: 'col', text: 'Состояние' }),
+        el('th', { scope: 'col', text: 'Забрал' }),
+        el('th', { scope: 'col', text: '' }))));
+
+    const body = el('tbody');
+    for (const p of rows) {
+      body.append(el('tr', {},
+        el('td', {},
+          el('a', { class: 'row-link', href: href('person', slice) + (href('person', slice).includes('?') ? '&' : '?') + 'id=' + p.telegramId, text: p.handle }),
+          el('div', { class: 'muted id', text: p.telegramId })),
+        el('td', { class: 'num muted', text: p.firstSeen }),
+        el('td', {}, p.source ? el('code', { text: p.source }) : el('span', { class: 'muted', text: 'без метки' })),
+        el('td', {},
+          p.stageLabel,
+          p.waitlist ? el('div', { class: 'good', text: 'на эфире' }) : null),
+        el('td', {},
+          p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }),
+          p.opened ? el('div', { class: 'muted', text: 'открыл' }) : null),
+        el('td', {}, el('a', { href: p.chat, text: 'написать' }))));
+    }
+    table.append(body);
+    host.append(table);
+  }
+</script>

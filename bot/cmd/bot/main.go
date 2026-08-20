@@ -138,8 +138,14 @@ func run(log *slog.Logger) error {
 	}
 	defer db.Close()
 
+	// Адрес бота для deep link на странице маршрутов. Берём из имени
+	// пользователя бота, а не из домена: /admin/routes показывает ссылку,
+	// которую человек отправит в Instagram, а не адрес сервера.
+	botLink := "https://t.me/" + envOr("TELEGRAM_BOT_USERNAME", "alexeymuzyka_bot")
+
+	catalog := funnel.DefaultCatalog()
 	scenario, err := funnel.New(
-		db, funnel.DefaultCatalog(), cfg.siteBase, cfg.publicBase,
+		db, catalog, cfg.siteBase, cfg.publicBase,
 		funnel.WithChannel(cfg.channelURL),
 	)
 	if err != nil {
@@ -164,17 +170,39 @@ func run(log *slog.Logger) error {
 		log.Info("webhook registered", "url", url)
 	}
 
-	// Страница воронки на чтение. Пароль спрашивает Caddy перед тем, как
-	// пустить сюда запрос: своей авторизации в боте нет.
-	adminPage, err := admin.NewHandler(db, log, admin.WithHidden(cfg.hiddenIDs))
+	// Админка на чтение. Пароль спрашивает Caddy перед тем, как пустить
+	// сюда запрос: своей авторизации в боте нет.
+	//
+	// Каталог тот же, по которому отвечает бот, поэтому страница маршрутов
+	// не может разойтись с тем, что человек реально получает.
+	adminPage, err := admin.NewHandler(db, log,
+		admin.WithHidden(cfg.hiddenIDs),
+		admin.WithCatalog(catalog, botLink, cfg.siteBase),
+	)
 	if err != nil {
 		return fmt.Errorf("building admin page: %w", err)
 	}
 
+	adminUI, built := admin.NewUI()
+	if !built {
+		// Не падаем: бот это в первую очередь webhook, и отсутствующая
+		// статика не повод ронять воронку. Но молчать об этом нельзя.
+		log.Warn("admin ui is not built", "fix", "cd bot/admin-ui && npm ci && npm run build")
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("POST "+webhookPath, webhook)
-	mux.Handle("GET /admin", adminPage)
+
+	// Данные и страницы разведены: JSON отдаёт Go, страницы собраны Astro
+	// и вшиты в бинарник. Поэтому вёрстка правится без пересборки Go, а
+	// схему базы по-прежнему знает только Go.
+	mux.HandleFunc("GET /admin/api/overview", adminPage.ServeOverview)
+	mux.HandleFunc("GET /admin/api/people", adminPage.ServePeople)
+	mux.HandleFunc("GET /admin/api/person", adminPage.ServePerson)
+	mux.HandleFunc("GET /admin/api/routes", adminPage.ServeRoutes)
 	mux.HandleFunc("GET /admin/export.xlsx", adminPage.ServeExport)
+	mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently))
+	mux.Handle("GET /admin/", adminUI)
 	redirect, err := telegram.NewRedirect(scenario, client, cfg.siteBase+"/articles", log)
 	if err != nil {
 		return fmt.Errorf("building redirect handler: %w", err)

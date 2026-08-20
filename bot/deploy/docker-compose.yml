@@ -22,7 +22,11 @@ services:
       #   caddy hash-password --plaintext '...'
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?нужен хэш пароля для /admin}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Каталог, а не файл. Бинд одного файла привязан к иноде: деплой
+      # записывает новый Caddyfile, инода меняется, и контейнер до
+      # пересоздания продолжает читать старый — конфиг на диске новый,
+      # поведение старое, и никакой ошибки нигде не видно.
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

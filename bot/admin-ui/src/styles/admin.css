@@ -1,0 +1,155 @@
+/* Один язык для всех страниц админки.
+   Тёплая палитра сайта, но плотность рабочего инструмента: сюда ходят не
+   любоваться, а смотреть, кто пришёл и куда дошёл.
+
+   Светлые значения посчитаны под выделенную строку, а не только под фон:
+   приглушённый и предупреждающий текст попадают на --pick, где контраст
+   ниже. Оба ≥ 4.5:1 на обеих поверхностях. */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f5f0;
+  --panel: #fffdf9;
+  --fg: #2b2926;
+  --muted: #6c675c;
+  --line: #ddd6c7;
+  --accent: #2f5568;
+  --pick: #ece7dc;
+  --warn: #7f6436;
+  --good: #3f6b4a;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16140f;
+    --panel: #1c1a14;
+    --fg: #e4ddd0;
+    --muted: #9a9182;
+    --line: #302b22;
+    --accent: #8fb6c8;
+    --pick: #221e17;
+    --warn: #c8a76a;
+    --good: #8fbb9a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Поверхности, которые рисует браузер: выделение, кольцо фокуса, полоса
+   прокрутки. По умолчанию они не принадлежат никакому оформлению. */
+::selection { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+a { color: var(--accent); }
+h1 { font-size: 1.35rem; font-weight: 500; margin: 0 0 4px; }
+h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 20px 20px 72px; }
+
+/* Шапка: где я и куда ещё можно пойти. Одна строка, без вложенных меню —
+   страниц пять, прятать их некуда и незачем. */
+.top {
+  display: flex; flex-wrap: wrap; gap: 10px 18px;
+  align-items: baseline; margin: 0 0 18px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 600; text-decoration: none; color: var(--fg); }
+.tabs { display: flex; flex-wrap: wrap; gap: 14px; }
+.tabs a { text-decoration: none; color: var(--muted); font-size: .92rem; }
+.tabs a:hover { color: var(--fg); }
+.tabs a[aria-current="page"] { color: var(--fg); font-weight: 600; }
+.top .grow { margin-left: auto; color: var(--muted); font-size: .82rem; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 18px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 4px 13px;
+  border: 1px solid var(--line); border-radius: 999px;
+  font-size: .82rem; text-decoration: none; color: var(--fg);
+  background: none; cursor: pointer; font-family: inherit;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.pill:hover { border-color: var(--accent); }
+.pill[aria-current="true"] { background: var(--pick); border-color: var(--accent); }
+.chip { border-color: var(--accent); background: var(--pick); }
+.chip svg { color: var(--muted); }
+.chip:hover svg { color: var(--fg); }
+.bar .right { margin-left: auto; display: flex; gap: 8px; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px 20px; margin: 0 0 20px;
+}
+
+/* Плитки итогов. Не «большая цифра ради большой цифры»: под каждой
+   написано, от чего она считается, иначе процент не с чем соотнести. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 0 0 20px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.tile .k { color: var(--muted); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.tile .v { font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 4px; }
+.tile .s { color: var(--muted); font-size: .82rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+th {
+  text-align: left; font-weight: 600; color: var(--muted);
+  font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+  padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td:last-child, th:last-child { padding-right: 0; }
+tbody tr { transition: background-color .15s ease; }
+tbody tr:hover { background: color-mix(in srgb, var(--pick) 55%, transparent); }
+tr.picked { background: var(--pick); }
+
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+th.num { text-align: right; }
+.id { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--muted); }
+.of { color: var(--muted); font-size: .85em; }
+.of::before { content: "("; }
+.of::after { content: ")"; }
+.note { color: var(--warn); font-size: .78rem; }
+.good { color: var(--good); }
+.empty { color: var(--muted); padding: 14px 0; max-width: 62ch; }
+.lede { color: var(--muted); font-size: .85rem; max-width: 68ch; margin: 10px 0 0; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; }
+
+.row-link { display: block; text-decoration: none; color: var(--accent); }
+.row-link:hover { text-decoration: underline; }
+.row-link[aria-current="true"] { color: var(--fg); font-weight: 600; }
+
+/* Полоса воронки: доля рисуется, а не только пишется. Ширина — доля от
+   первого шага, поэтому сужение видно глазом раньше, чем читаются цифры. */
+.bars { display: grid; gap: 2px; }
+.bars .row { display: grid; grid-template-columns: 15rem 1fr auto; gap: 12px; align-items: center; padding: 7px 0; }
+.bars .track { background: color-mix(in srgb, var(--line) 60%, transparent); border-radius: 4px; height: 22px; overflow: hidden; }
+.bars .fill { background: var(--accent); height: 100%; border-radius: 4px; min-width: 2px; transition: width .3s ease; }
+.bars .name { font-size: .92rem; }
+.bars .val { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92rem; }
+
+.search {
+  min-height: 34px; padding: 4px 13px; font: inherit; font-size: .88rem;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--fg); min-width: 15rem;
+}
+
+.dl dt { color: var(--muted); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; }
+.dl dd { margin: 2px 0 14px; }
+
+.back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; font-size: .88rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+@media (max-width: 720px) {
+  .bars .row { grid-template-columns: 1fr; gap: 4px; }
+}

@@ -1,0 +1,6 @@
+internal/admin/ui/*
+!internal/admin/ui/.gitkeep
+admin-ui/node_modules/
+admin-ui/dist/
+admin-ui/.astro/
+admin-ui/.impeccable/

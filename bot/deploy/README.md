@@ -111,6 +111,9 @@ deploy/compose.sh exec backup ls -lh /backups
 deploy/compose.sh ps                  # кто упал
 deploy/compose.sh logs -f bot         # ошибки шагов воронки
 deploy/compose.sh logs caddy          # сертификаты и маршруты
+
+# правка маршрутов: caddy/Caddyfile, затем
+deploy/compose.sh exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 deploy/compose.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c "select name, count(*) from events group by 1 order by 2 desc;"'
 ```
