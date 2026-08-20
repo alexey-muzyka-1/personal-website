@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -49,6 +51,10 @@ type config struct {
 	webhookSecret string
 	databaseURL   string
 	setWebhook    bool
+	// hiddenIDs — кого не показывать на странице воронки. Свой тестовый
+	// аккаунт в отчёте о чужом поведении даёт ложную картину: на выборке
+	// из нескольких человек он один сдвигает все проценты.
+	hiddenIDs []int64
 }
 
 func loadConfig() (config, error) {
@@ -79,7 +85,37 @@ func loadConfig() (config, error) {
 	if len(missing) > 0 {
 		return config{}, fmt.Errorf("missing env: %v", missing)
 	}
+
+	hidden, err := parseIDs(os.Getenv("ADMIN_HIDDEN_TELEGRAM_IDS"))
+	if err != nil {
+		return config{}, fmt.Errorf("ADMIN_HIDDEN_TELEGRAM_IDS: %w", err)
+	}
+	cfg.hiddenIDs = hidden
+
 	return cfg, nil
+}
+
+// parseIDs читает список telegram_id через запятую. Опечатка роняет
+// старт, а не молча показывает отчёт вместе с тестовым аккаунтом: тихо
+// проигнорированный фильтр здесь хуже упавшего процесса.
+func parseIDs(raw string) ([]int64, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	var ids []int64
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(part, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not a telegram id", part)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 func run(log *slog.Logger) error {
@@ -130,7 +166,7 @@ func run(log *slog.Logger) error {
 
 	// Страница воронки на чтение. Пароль спрашивает Caddy перед тем, как
 	// пустить сюда запрос: своей авторизации в боте нет.
-	adminPage, err := admin.NewHandler(db, log)
+	adminPage, err := admin.NewHandler(db, log, admin.WithHidden(cfg.hiddenIDs))
 	if err != nil {
 		return fmt.Errorf("building admin page: %w", err)
 	}
@@ -138,6 +174,7 @@ func run(log *slog.Logger) error {
 	mux := http.NewServeMux()
 	mux.Handle("POST "+webhookPath, webhook)
 	mux.Handle("GET /admin", adminPage)
+	mux.HandleFunc("GET /admin/export.xlsx", adminPage.ServeExport)
 	redirect, err := telegram.NewRedirect(scenario, client, cfg.siteBase+"/articles", log)
 	if err != nil {
 		return fmt.Errorf("building redirect handler: %w", err)

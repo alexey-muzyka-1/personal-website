@@ -42,6 +42,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?нужен токен из BotFather}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?нужен секрет webhook}
       TELEGRAM_SET_WEBHOOK: ${TELEGRAM_SET_WEBHOOK:-false}
+      ADMIN_HIDDEN_TELEGRAM_IDS: ${ADMIN_HIDDEN_TELEGRAM_IDS:-}
     depends_on:
       postgres:
         condition: service_healthy
