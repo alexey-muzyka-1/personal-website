@@ -428,3 +428,75 @@ func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 		t.Errorf("target = %q, want utm_medium=bot", opened.Target)
 	}
 }
+
+// Ни один оффер не должен быть тупиком: если предложение не подошло, у
+// человека обязана оставаться кнопка. Предыдущее сообщение к этому
+// моменту уже заменено, вернуться иначе некуда.
+//
+// Выход у оффера ровно один и тот же — уточняющий вопрос. Проверять «есть
+// хоть какая-то кнопка с действием» мало: этому условию удовлетворяет и
+// «Записать меня», после которого человек снова стоит перед стеной.
+func TestNoOfferIsADeadEnd(t *testing.T) {
+	cases := map[string]struct {
+		stage  funnel.Stage
+		escape bool
+	}{
+		"не выпускает": {funnel.StageNotShipping, true},
+		"нет сигнала":  {funnel.StageNoSignal, true},
+		// «Другая ситуация» сама и есть тот уточняющий вопрос. Выводить ей
+		// некуда, кроме двух состояний; достаточно, чтобы не молчала.
+		"другая": {funnel.StageOther, false},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f, _ := newMemoryFunnel(t)
+			ctx := context.Background()
+
+			reply, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser})
+			if err != nil {
+				t.Fatalf("Start: %v", err)
+			}
+			if _, err := f.Open(ctx, tokenOf(t, reply)); err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+
+			answer, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: tc.stage})
+			if err != nil {
+				t.Fatalf("AnswerStage: %v", err)
+			}
+
+			var hasAction, hasEscape bool
+			for _, b := range answer.Buttons {
+				if b.Action.Kind != funnel.ActionNone {
+					hasAction = true
+				}
+				if b.Action.Kind == funnel.ActionStage && b.Action.Stage == funnel.StageOther {
+					hasEscape = true
+				}
+			}
+
+			if tc.escape {
+				if !hasEscape {
+					t.Errorf("из оффера нет выхода в уточняющий вопрос: %+v", answer.Buttons)
+				}
+				return
+			}
+			if !hasAction {
+				t.Errorf("у ответа нет ни одной кнопки, ведущей дальше: %+v", answer.Buttons)
+			}
+		})
+	}
+}
+
+// tokenOf достаёт токен из кнопки-ссылки.
+func tokenOf(t *testing.T, reply funnel.Reply) string {
+	t.Helper()
+	for _, b := range reply.Buttons {
+		if b.URL != "" {
+			return b.URL[strings.LastIndex(b.URL, "/")+1:]
+		}
+	}
+	t.Fatal("в ответе нет кнопки-ссылки")
+	return ""
+}

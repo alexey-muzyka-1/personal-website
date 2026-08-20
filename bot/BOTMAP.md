@@ -115,6 +115,7 @@ https://alexeymuzyka.com/articles/metod-6x5?utm_campaign=site_home&utm_medium=bo
 Кнопки:
 
 - **Открыть Viralmaxing** → https://viralmaxing.com/?utm_source=lesha-bot&utm_medium=referral&utm_campaign=funnel
+- **Мне это не подходит** → `stage:other`
 
 ### 4в. Ответил «Другая ситуация»
 
