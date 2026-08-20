@@ -432,14 +432,23 @@ func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 // Ни один оффер не должен быть тупиком: если предложение не подошло, у
 // человека обязана оставаться кнопка. Предыдущее сообщение к этому
 // моменту уже заменено, вернуться иначе некуда.
+//
+// Выход у оффера ровно один и тот же — уточняющий вопрос. Проверять «есть
+// хоть какая-то кнопка с действием» мало: этому условию удовлетворяет и
+// «Записать меня», после которого человек снова стоит перед стеной.
 func TestNoOfferIsADeadEnd(t *testing.T) {
-	stages := map[string]funnel.Stage{
-		"не выпускает": funnel.StageNotShipping,
-		"нет сигнала":  funnel.StageNoSignal,
-		"другая":       funnel.StageOther,
+	cases := map[string]struct {
+		stage  funnel.Stage
+		escape bool
+	}{
+		"не выпускает": {funnel.StageNotShipping, true},
+		"нет сигнала":  {funnel.StageNoSignal, true},
+		// «Другая ситуация» сама и есть тот уточняющий вопрос. Выводить ей
+		// некуда, кроме двух состояний; достаточно, чтобы не молчала.
+		"другая": {funnel.StageOther, false},
 	}
 
-	for name, stage := range stages {
+	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			f, _ := newMemoryFunnel(t)
 			ctx := context.Background()
@@ -452,18 +461,28 @@ func TestNoOfferIsADeadEnd(t *testing.T) {
 				t.Fatalf("Open: %v", err)
 			}
 
-			answer, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: stage})
+			answer, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: tc.stage})
 			if err != nil {
 				t.Fatalf("AnswerStage: %v", err)
 			}
 
-			var next int
+			var hasAction, hasEscape bool
 			for _, b := range answer.Buttons {
 				if b.Action.Kind != funnel.ActionNone {
-					next++
+					hasAction = true
+				}
+				if b.Action.Kind == funnel.ActionStage && b.Action.Stage == funnel.StageOther {
+					hasEscape = true
 				}
 			}
-			if next == 0 {
+
+			if tc.escape {
+				if !hasEscape {
+					t.Errorf("из оффера нет выхода в уточняющий вопрос: %+v", answer.Buttons)
+				}
+				return
+			}
+			if !hasAction {
 				t.Errorf("у ответа нет ни одной кнопки, ведущей дальше: %+v", answer.Buttons)
 			}
 		})
