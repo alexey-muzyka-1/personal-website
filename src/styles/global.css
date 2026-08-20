@@ -16,7 +16,10 @@
      с чужого домена ради двух строк. */
   --mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --maxw: 720px;
+  /* Ширина одна на весь сайт и равна ширине статьи. Раньше контейнер был
+     720px, а статья пробивала его хаком с transform — от этого главная и
+     остальные страницы выглядели уже и беднее собственных статей. */
+  --maxw: 960px;
 }
 
 :root[data-theme="dark"] {
@@ -122,9 +125,22 @@ a:hover { color: var(--accent); }
 .head { display: flex; align-items: center; gap: 22px; padding: 8px 0 4px; }
 .portrait { width: 110px; height: 110px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
 .head-text { min-width: 0; }
-.head h1 { font-size: 2.4rem; margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; }
+.head h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 5.5vw, 3.6rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
 .head .lede { color: var(--muted); margin: 6px 0 0; }
-.hero-tagline { color: var(--fg); margin: 10px 0 0; font-size: 1.1rem; line-height: 1.45; max-width: 30em; }
+.hero-tagline {
+  color: var(--fg);
+  margin: 16px 0 0;
+  font-family: var(--serif);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+  line-height: 1.5;
+  max-width: 26em;
+}
 
 /* Действие на первом экране. Единственная залитая кнопка на сайте:
    если залить две, не будет ни одной. */
@@ -152,10 +168,16 @@ a:hover { color: var(--accent); }
 .subnote { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
 
 /* крупный заголовок секции + разделитель между блоками */
-.section-h { font-family: var(--serif); font-size: 1.35rem; font-weight: 500; margin: 0 0 8px; }
+.section-h {
+  font-family: var(--serif);
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+}
 .section-h .all { float: right; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.82rem; }
 .section-h .all a { color: var(--accent); }
-.section-major { border-top: 1px solid var(--line); margin-top: 56px; padding-top: 34px; }
+.section-major { border-top: 1px solid var(--line); margin-top: 72px; padding-top: 40px; }
 .inline-links { display: flex; gap: 16px; margin: 18px 0 0; font-size: 0.9rem; flex-wrap: wrap; }
 .inline-links a { color: var(--accent); }
 .inline-links a:hover { text-decoration: underline; }
