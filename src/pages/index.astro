@@ -2,9 +2,9 @@
 import Base from '../layouts/Base.astro';
 import { SITE } from '../config';
 import { homeTools } from '../data/tools';
-import { featuredArticle } from '../data/articles';
+import { articleRoutes } from '../data/articles';
 import { botHref, FUNNEL_SOURCE } from '../data/funnel';
-import { giveaways, figures } from '../data/systems';
+import { giveaways } from '../data/systems';
 import Icon from '../components/Icon.astro';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -74,35 +74,18 @@ const schema = [
     <a class="btn-open" href={`${base}articles`}>Читать на сайте</a>
   </div>
 
-  <div class="figures">
-    {figures.map((f) => (
-      <div><span>{f.label}</span><b>{f.value}</b></div>
-    ))}
-  </div>
-
   <section class="block section-major">
-    <h2 class="section-h">Статьи <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
-    <p>
-      Большие разборы систем, которые я сначала собираю для себя, а потом
-      выкладываю целиком.
-    </p>
-    <a class="feature" href={featuredArticle.href}>
-      {featuredArticle.thumb && (
-        <img
-          class="feature-thumb"
-          src={featuredArticle.thumb}
-          alt={featuredArticle.thumbAlt}
-          width="360"
-          height="328"
-          loading="lazy"
-        />
-      )}
-      <div>
-        <h3>{featuredArticle.title}</h3>
-        <p>{featuredArticle.what}</p>
-        <span class="go">Читать →</span>
-      </div>
-    </a>
+    <h2 class="section-h">Что почитать <span class="all"><a href={`${base}articles`}>все →</a></span></h2>
+    <div class="routes">
+      {articleRoutes.map((a) => (
+        <a class="route" href={a.href}>
+          <span class="route-who">{a.audience}</span>
+          <h3>{a.title}</h3>
+          <p>{a.audienceWhat}</p>
+          <span class="go">Читать →</span>
+        </a>
+      ))}
+    </div>
   </section>
 
   {homeTools.length > 0 && (
@@ -194,36 +177,39 @@ const schema = [
 </Base>
 
 <style>
-  /* Витрина одной статьи: шире плитки инструментов, потому что это
-     главный материал, а не пункт списка. */
-  .feature {
+  /* Развилка: человек узнаёт себя в первой строке и идёт по своей
+     ветке. Две колонки на десктопе, стопкой на телефоне. */
+  .routes {
     display: grid;
-    grid-template-columns: 132px 1fr;
-    gap: 22px;
-    align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
     margin-top: 4px;
-    padding: 26px;
+  }
+  .route {
+    display: block;
+    padding: 24px;
     border: 1px solid var(--line);
     border-radius: 14px;
     color: inherit;
   }
-  .feature-thumb {
-    width: 132px;
-    height: auto;
+  .route:hover { color: inherit; border-color: var(--accent); }
+  .route:hover h3 { color: var(--accent); }
+  .route-who {
     display: block;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    margin-bottom: 12px;
   }
-  .feature:hover { color: inherit; border-color: var(--accent); }
-  .feature:hover h3 { color: var(--accent); }
-  .feature h3 {
+  .route h3 {
     margin: 0 0 10px;
-    font-size: 1.45rem;
+    font-size: 1.28rem;
     line-height: 1.25;
     text-wrap: balance;
   }
-  .feature p { margin: 0 0 14px; color: var(--muted); }
-  .feature .go { font-size: 0.92rem; color: var(--accent); }
+  .route p { margin: 0 0 14px; color: var(--muted); font-size: 0.94rem; }
+  .route .go { font-size: 0.92rem; color: var(--accent); }
 
   .tg {
     display: flex;
