@@ -6,10 +6,12 @@
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const path = Astro.url.pathname;
 
-const primary = { href: base + 'articles', label: 'Статьи' };
+const primary = [
+  { href: base + 'articles', label: 'Статьи' },
+  { href: base + 'books', label: 'Книги' },
+];
 const more = [
   { href: base + 'tools', label: 'Инструменты' },
-  { href: base + 'books', label: 'Книги' },
   { href: base + 'mantra', label: 'Мантра' },
 ];
 
@@ -26,11 +28,9 @@ const moreActive = more.some((l) => active(l.href));
   <a href={base} class="brand">ЛМ</a>
 
   <div class="nav-right">
-    <a
-      class="nav-link"
-      href={primary.href}
-      aria-current={active(primary.href) ? 'page' : undefined}
-    >{primary.label}</a>
+    {primary.map((l) => (
+      <a class="nav-link" href={l.href} aria-current={active(l.href) ? 'page' : undefined}>{l.label}</a>
+    ))}
 
     <details class="more" data-more>
       <summary class="nav-link" aria-current={moreActive ? 'page' : undefined}>

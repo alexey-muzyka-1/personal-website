@@ -56,24 +56,21 @@ const schema = [
   schema={schema}
 >
   <header class="head">
-    <img class="portrait" src={`${base}me.jpg`} alt="Лёша Музыка" width="110" height="110" />
+    <img class="portrait" src={`${base}me.jpg`} alt="Лёша Музыка" width="360" height="360" />
     <div class="head-text">
       <h1>Лёша Музыка</h1>
       <p class="hero-tagline">
         Строю AI-продукты. Выкладываю инструменты и разбираю системы, которыми это делаю.
       </p>
-      <p class="status">
-        <span class="dot" aria-hidden="true"></span>работает прямо сейчас · последний разбор 14.08.2026
-      </p>
+      <p class="status">последний разбор — 14 августа 2026</p>
+
+      <div class="hero-actions" data-cta="hero">
+        <a class="btn-primary" href={botHome ?? tgHref}>
+          {botHome ? 'Забрать разборы в Telegram' : tgLabel} →
+        </a>
+      </div>
     </div>
   </header>
-
-  <div class="hero-actions" data-cta="hero">
-    <a class="btn-primary" href={botHome ?? tgHref}>
-      {botHome ? 'Забрать разборы в Telegram' : tgLabel} →
-    </a>
-    <a class="btn-open" href={`${base}articles`}>Читать на сайте</a>
-  </div>
 
   <section class="block section-major">
     <h2 class="section-h">Что почитать <span class="all"><a href={`${base}articles`}>все →</a></span></h2>

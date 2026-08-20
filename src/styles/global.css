@@ -146,8 +146,14 @@ a:hover { color: var(--accent); }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
 /* ---- header (тихий) ---- */
-.head { display: flex; align-items: center; gap: 22px; padding: 8px 0 4px; }
-.portrait { width: 110px; height: 110px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+.head { display: flex; align-items: center; gap: 38px; padding: 8px 0 8px; }
+/* Портрет — единственная картинка на первом экране, и он должен держать
+   заголовок в 3,6rem, а не теряться под ним. */
+.portrait {
+  width: 200px; height: 240px;
+  object-fit: cover; object-position: center 22%;
+  border-radius: 14px; flex-shrink: 0;
+}
 .head-text { min-width: 0; }
 .head h1 {
   margin: 0;
@@ -322,7 +328,10 @@ a:hover { color: var(--accent); }
 @media (max-width: 600px) {
   .nav { padding-bottom: 28px; }
   .head { gap: 14px; }
-  .portrait { width: 84px; height: 84px; }
+  .head { gap: 18px; align-items: flex-start; }
+  .portrait { width: 96px; height: 116px; border-radius: 10px; }
+  .hero-actions { margin-top: 20px; }
+  .hero-actions .btn-primary { width: 100%; justify-content: center; }
   .head h1 { font-size: 1.5rem; }
     /* Тезис на телефоне обязан быть виден: это единственная строка,
      которая объясняет, кто здесь. Раньше он был display: none. */
@@ -341,14 +350,8 @@ a:hover { color: var(--accent); }
 
 /* Статусная строка: сайт сообщает, что контур живой. */
 .status {
-  font-family: var(--mono); font-size: 0.76rem; line-height: 1.5;
-  color: var(--muted); margin: 22px 0 0;
-}
-/* Точка обязана ехать вместе с первым словом: во флексе она при переносе
-   оставалась одна на строке. */
-.status .dot {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--live); margin-right: 8px; vertical-align: 0.08em;
+  font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.02em;
+  color: var(--muted); margin: 20px 0 0;
 }
 
 /* Числа как вывод команды: подпись слева, значение справа. */
