@@ -428,3 +428,56 @@ func TestOpenWithoutSourceStillCarriesCampaign(t *testing.T) {
 		t.Errorf("target = %q, want utm_medium=bot", opened.Target)
 	}
 }
+
+// Ни один оффер не должен быть тупиком: если предложение не подошло, у
+// человека обязана оставаться кнопка. Предыдущее сообщение к этому
+// моменту уже заменено, вернуться иначе некуда.
+func TestNoOfferIsADeadEnd(t *testing.T) {
+	stages := map[string]funnel.Stage{
+		"не выпускает": funnel.StageNotShipping,
+		"нет сигнала":  funnel.StageNoSignal,
+		"другая":       funnel.StageOther,
+	}
+
+	for name, stage := range stages {
+		t.Run(name, func(t *testing.T) {
+			f, _ := newMemoryFunnel(t)
+			ctx := context.Background()
+
+			reply, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser})
+			if err != nil {
+				t.Fatalf("Start: %v", err)
+			}
+			if _, err := f.Open(ctx, tokenOf(t, reply)); err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+
+			answer, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: stage})
+			if err != nil {
+				t.Fatalf("AnswerStage: %v", err)
+			}
+
+			var next int
+			for _, b := range answer.Buttons {
+				if b.Action.Kind != funnel.ActionNone {
+					next++
+				}
+			}
+			if next == 0 {
+				t.Errorf("у ответа нет ни одной кнопки, ведущей дальше: %+v", answer.Buttons)
+			}
+		})
+	}
+}
+
+// tokenOf достаёт токен из кнопки-ссылки.
+func tokenOf(t *testing.T, reply funnel.Reply) string {
+	t.Helper()
+	for _, b := range reply.Buttons {
+		if b.URL != "" {
+			return b.URL[strings.LastIndex(b.URL, "/")+1:]
+		}
+	}
+	t.Fatal("в ответе нет кнопки-ссылки")
+	return ""
+}

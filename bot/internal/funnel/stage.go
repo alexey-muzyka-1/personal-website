@@ -119,6 +119,10 @@ func (f *Funnel) stepFor(stage Stage) (Reply, string) {
 			),
 			Buttons: []Button{
 				{Label: "Открыть Viralmaxing", URL: f.productURL()},
+				// Без второй кнопки ветка была тупиком: не нажал — и
+				// вернуться некуда, предыдущее сообщение уже заменено.
+				// Ведёт туда же, куда «Пока не надо» в соседней ветке.
+				{Label: labelOther, Action: Action{Kind: ActionStage, Stage: StageOther}},
 			},
 		}, OfferViralmaxing
 
