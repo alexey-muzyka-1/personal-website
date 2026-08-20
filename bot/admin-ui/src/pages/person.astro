@@ -1,0 +1,77 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Человек" page="people">
+  <div data-card></div>
+</Admin>
+
+<script>
+  import { api, fail, readSlice, href, el } from '../lib/api.ts';
+  import { ICON } from '../lib/slice.ts';
+
+  const slice = readSlice();
+  const host = document.querySelector('[data-card]');
+  const id = new URLSearchParams(location.search).get('id') ?? '';
+
+  const back = el('a', { class: 'back', href: href('people', slice) }, ICON.back(), ' ко всем');
+
+  api('person', { id })
+    .then(render)
+    .catch((err) => {
+      host?.append(back);
+      fail(host, err);
+    });
+
+  function render(d) {
+    if (!host) return;
+    const p = d.person;
+    host.innerHTML = '';
+    host.append(back);
+
+    host.append(el('h1', { text: p.handle }));
+    host.append(el('p', { class: 'muted' },
+      el('span', { class: 'id', text: p.telegramId }),
+      ' · ',
+      el('a', { href: p.chat, text: 'написать в Telegram' })));
+
+    const dl = el('dl', { class: 'dl card' });
+    const add = (k, v) => { dl.append(el('dt', { text: k }), el('dd', {}, v)); };
+
+    add('Пришёл', p.firstSeen);
+    add('Откуда', p.source
+      ? el('a', { href: href('people', slice, { source: p.source }) }, el('code', { text: p.source }))
+      : el('a', { href: href('people', slice, { source: '-' }), text: 'без метки' }));
+    add('Состояние', el('span', {},
+      p.stageLabel,
+      p.waitlist ? el('b', { class: 'good', text: ' · записан на эфир' }) : null));
+    add('Забрал', p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }));
+    host.append(dl);
+
+    const card = el('section', { class: 'card' }, el('h2', { text: 'Что делал' }));
+    if (!d.moments.length) {
+      card.append(el('p', { class: 'empty', text: 'Запустил бота и дальше не пошёл: разбор не открыт, на вопрос о состоянии не отвечал.' }));
+    } else {
+      const table = el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', { scope: 'col', text: 'Когда' }),
+          el('th', { scope: 'col', text: 'Шаг' }),
+          el('th', { scope: 'col', text: 'Подробности' }))));
+      const body = el('tbody');
+      for (const m of d.moments) {
+        const details = el('td', { class: 'muted' });
+        if (m.materialId) details.append(el('code', { text: m.materialId }), ' ');
+        for (const [k, v] of Object.entries(m.meta ?? {})) {
+          details.append(el('code', { text: `${k}=${v}` }), ' ');
+        }
+        body.append(el('tr', {},
+          el('td', { class: 'muted id', text: m.at }),
+          el('td', { text: m.label }),
+          details));
+      }
+      table.append(body);
+      card.append(table);
+    }
+    host.append(card);
+  }
+</script>

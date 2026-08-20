@@ -1,0 +1,13 @@
+{
+  "name": "funnel-admin-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && node scripts/install.mjs",
+    "preview": "astro preview"
+  },
+  "devDependencies": {
+    "astro": "^5.14.1"
+  }
+}

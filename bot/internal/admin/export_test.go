@@ -221,13 +221,3 @@ func TestExportOfNothingIsStillAWorkbook(t *testing.T) {
 		t.Error("в пустой книге нет даже заголовков")
 	}
 }
-
-// Кнопка выгрузки на странице ведёт в тот же срез, что открыт.
-func TestExportButtonKeepsTheSlice(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin?days=7&source=site_metod6x5")
-
-	want := "/admin/export.xlsx?days=7&amp;source=site_metod6x5"
-	if !strings.Contains(body, want) {
-		t.Errorf("кнопка выгрузки теряет срез, ждали %s", want)
-	}
-}

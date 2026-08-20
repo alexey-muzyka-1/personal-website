@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sort"
 )
 
 var ErrUnknownMaterial = errors.New("unknown material")
@@ -215,4 +216,68 @@ func (c Catalog) Materials() []Material {
 	out := make([]Material, len(c.order))
 	copy(out, c.order)
 	return out
+}
+
+// Route — что бот отдаст по конкретной метке источника.
+//
+// Нужен странице маршрутов в админке: какие метки существуют, куда каждая
+// ведёт и что человек уже прочитал до бота. Раньше это можно было узнать
+// только чтением кода, поэтому маршруты расходились с тем, что о них
+// помнил автор.
+type Route struct {
+	// Source — метка, пустая означает «пришёл без метки».
+	Source string
+	// Material — материал, который получит человек с этой меткой.
+	Material Material
+	// Fallback — своего правила нет, сработал материал по умолчанию.
+	Fallback bool
+	// AlreadyRead — что человек прочитал до бота, если пришёл со статьи.
+	AlreadyRead string
+}
+
+// RouteTable — маршруты целиком, включая метки сайта без своего правила:
+// по ним тоже приходят люди, и молчать о них нельзя. Дополнительные метки
+// (например, живые метки Reel из базы) можно передать аргументами.
+func (c Catalog) RouteTable(extra ...string) []Route {
+	seen := map[string]bool{}
+	var sources []string
+	add := func(s string) {
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		sources = append(sources, s)
+	}
+	for _, s := range []string{
+		SourceSiteHome, SourceSiteMethod6x5, SourceSiteBlueprint50, SourceSiteHealth,
+	} {
+		add(s)
+	}
+	for s := range c.routes {
+		add(s)
+	}
+	for _, s := range extra {
+		add(s)
+	}
+	sort.Strings(sources)
+
+	// Пустая метка идёт первой: это самый частый случай у пришедших из
+	// профиля или из старого поста.
+	sources = append([]string{""}, sources...)
+
+	routes := make([]Route, 0, len(sources))
+	for _, s := range sources {
+		id, mapped := c.routes[s]
+		material := c.fallback
+		if mapped {
+			material = c.byID[id]
+		}
+		routes = append(routes, Route{
+			Source:      s,
+			Material:    material,
+			Fallback:    !mapped,
+			AlreadyRead: c.readFrom[s],
+		})
+	}
+	return routes
 }

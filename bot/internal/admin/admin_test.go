@@ -2,20 +2,20 @@ package admin_test
 
 import (
 	"context"
-	"io"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/admin"
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 )
 
 var testNow = time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
 
 // stub — база, которую можно предсказать. Запоминает фильтр: половина
-// смысла страницы в том, что клик доезжает до запроса неискажённым.
+// смысла админки в том, что выбранный срез доезжает до запроса неискажённым.
 type stub struct {
 	got admin.Filter
 
@@ -26,6 +26,7 @@ type stub struct {
 	person   admin.Person
 	personOK bool
 	timeline []admin.TimelineRow
+	daily    []admin.Day
 	hidden   int
 }
 
@@ -62,29 +63,48 @@ func (s *stub) Timeline(_ context.Context, f admin.Filter, _ int) ([]admin.Timel
 	return s.timeline, nil
 }
 
+func (s *stub) Daily(_ context.Context, f admin.Filter) ([]admin.Day, error) {
+	s.got = f
+	return s.daily, nil
+}
+
 func (s *stub) HiddenPeople(_ context.Context, f admin.Filter) (int, error) {
 	s.got = f
 	return s.hidden, nil
 }
 
-func get(t *testing.T, r *stub, target string, opts ...admin.Option) (*httptest.ResponseRecorder, string) {
+func handler(t *testing.T, r *stub, opts ...admin.Option) *admin.Handler {
 	t.Helper()
 
-	opts = append(opts, admin.WithClock(func() time.Time { return testNow }))
+	opts = append(opts,
+		admin.WithClock(func() time.Time { return testNow }),
+		admin.WithCatalog(funnel.DefaultCatalog(), "https://t.me/testbot", "https://example.com"),
+	)
 	h, err := admin.NewHandler(r, nil, opts...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
+	return h
+}
+
+// call дёргает эндпоинт и разбирает ответ.
+func call(t *testing.T, r *stub, serve func(*admin.Handler) http.HandlerFunc, target string, opts ...admin.Option) (*httptest.ResponseRecorder, map[string]any) {
+	t.Helper()
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+	serve(handler(t, r, opts...))(rec, httptest.NewRequest(http.MethodGet, target, nil))
 
-	body, err := io.ReadAll(rec.Body)
-	if err != nil {
-		t.Fatalf("reading body: %v", err)
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("ответ не JSON: %v\n%s", err, rec.Body.String())
 	}
-	return rec, string(body)
+	return rec, body
 }
+
+func overview(h *admin.Handler) http.HandlerFunc { return h.ServeOverview }
+func people(h *admin.Handler) http.HandlerFunc   { return h.ServePeople }
+func person(h *admin.Handler) http.HandlerFunc   { return h.ServePerson }
+func routes(h *admin.Handler) http.HandlerFunc   { return h.ServeRoutes }
 
 func fullFunnel() *stub {
 	return &stub{
@@ -93,8 +113,8 @@ func fullFunnel() *stub {
 			"material_selected": {Name: "material_selected", People: 10, Events: 12},
 			"material_opened":   {Name: "material_opened", People: 5, Events: 6},
 			"stage_answered":    {Name: "stage_answered", People: 4, Events: 4},
-			"offer_shown":       {Name: "offer_shown", People: 4, Events: 4},
-			"waitlist_joined":   {Name: "waitlist_joined", People: 1, Events: 1},
+			"offer_shown":       {Name: "offer_shown", People: 3, Events: 3},
+			"waitlist_joined":   {Name: "waitlist_joined", People: 2, Events: 2},
 		},
 		segments: []admin.Segment{
 			{Stage: "not_shipping", People: 3, Waitlist: 1},
@@ -109,76 +129,102 @@ func fullFunnel() *stub {
 				Source: "site_metod6x5", Stage: "not_shipping", Materials: "blueprint-50m",
 				Opened: true, Waitlist: true},
 		},
+		daily: []admin.Day{{Date: "2026-08-20", People: 10, Opened: 5, Waitlist: 2}},
 	}
+}
+
+func steps(t *testing.T, body map[string]any) map[string]map[string]any {
+	t.Helper()
+
+	out := map[string]map[string]any{}
+	list, ok := body["steps"].([]any)
+	if !ok {
+		t.Fatalf("в ответе нет шагов: %v", body)
+	}
+	for _, raw := range list {
+		s := raw.(map[string]any)
+		out[s["name"].(string)] = s
+	}
+	return out
 }
 
 // Доля от предыдущего шага — единственная цифра, по которой видно, где
-// именно теряются люди. Доля от запуска на нижних шагах мала у всех сразу.
+// именно теряются люди.
 func TestStepsCountBothShares(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
+	_, body := call(t, fullFunnel(), overview, "/admin/api/overview")
+	s := steps(t, body)
 
-	// Открыли статью: 5 из 10 пришедших, они же 50% от предыдущего шага.
-	if !strings.Contains(body, "50%") {
-		t.Error("нет доли открывших статью")
+	// Открыли статью: 5 из 10 пришедших.
+	if got := s["material_opened"]["fromPrev"]; got != float64(50) {
+		t.Errorf("доля с прошлого шага = %v, ожидали 50", got)
 	}
-	// Записались: 1 из 4 увидевших предложение — 25% с прошлого шага,
-	// и 10% от всех пришедших.
-	for _, want := range []string{"25%", "10%"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("нет доли %s", want)
-		}
+	// Записались: 2 из 3 увидевших предложение и 2 из 10 пришедших.
+	if got := s["waitlist_joined"]["fromPrev"]; got != float64(67) {
+		t.Errorf("доля с прошлого шага = %v, ожидали 67", got)
+	}
+	if got := s["waitlist_joined"]["fromTop"]; got != float64(20) {
+		t.Errorf("доля от запуска = %v, ожидали 20", got)
 	}
 }
 
-// Первый шаг не с чем сравнивать: доля «с прошлого» у него отсутствует, а
-// не равна ста процентам.
-func TestFirstStepHasNoPreviousShare(t *testing.T) {
-	r := &stub{stages: map[string]admin.Stage{"bot_started": {Name: "bot_started", People: 7}}}
-	_, body := get(t, r, "/admin")
+// Проценты округляются, а не отбрасываются: целочисленное деление давало
+// 66% там, где интерфейс на той же цифре показывал 67%.
+func TestSharesAreRounded(t *testing.T) {
+	r := fullFunnel()
+	_, body := call(t, r, overview, "/admin/api/overview")
 
-	if !strings.Contains(body, "—") {
-		t.Error("у первого шага должен быть прочерк вместо доли с прошлого шага")
+	if got := steps(t, body)["waitlist_joined"]["fromPrev"]; got == float64(66) {
+		t.Error("процент отброшен вместо округления: 2 из 3 это 67%, а не 66%")
+	}
+}
+
+// Первый шаг не с чем сравнивать, и пустая база не должна выглядеть как
+// стопроцентная проходимость.
+func TestNoShareWithoutABase(t *testing.T) {
+	_, body := call(t, fullFunnel(), overview, "/admin/api/overview")
+	if got := steps(t, body)["bot_started"]["hasPrev"]; got != false {
+		t.Error("у первого шага появилась доля с предыдущего")
+	}
+
+	_, empty := call(t, &stub{}, overview, "/admin/api/overview")
+	for name, s := range steps(t, empty) {
+		if s["hasTop"] != false || s["hasPrev"] != false {
+			t.Errorf("на пустой базе у шага %s есть доля: %v", name, s)
+		}
 	}
 }
 
 // Цифры, которые слишком легко прочитать как результат, подписаны.
 func TestOfferAndWaitlistAreQualified(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
+	_, body := call(t, fullFunnel(), overview, "/admin/api/overview")
+	s := steps(t, body)
 
-	for _, want := range []string{"показ, не переход", "интерес, не деньги", "Платного шага в воронке пока нет"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("страница не оговаривает %q", want)
-		}
+	if s["offer_shown"]["note"] != "показ, не переход" {
+		t.Error("показ оффера не оговорён")
+	}
+	if s["waitlist_joined"]["note"] != "интерес, не деньги" {
+		t.Error("запись на эфир не оговорена")
 	}
 }
 
 func TestFilterReachesTheReader(t *testing.T) {
-	cases := map[string]struct {
-		target string
-		want   admin.Filter
-	}{
-		"источник": {"/admin?source=site_home", admin.Filter{Source: "site_home"}},
-		"состояние": {
-			"/admin?stage=no_signal",
-			admin.Filter{Stage: "no_signal"},
-		},
+	cases := map[string]struct{ target, source, stage string }{
+		"источник":  {"/admin/api/overview?source=site_home", "site_home", ""},
+		"состояние": {"/admin/api/overview?stage=no_signal", "", "no_signal"},
 		// Пустое поле — тоже срез: «пришли без метки» и «не ответил» это
-		// осмысленные группы, и кликнуть по ним нужно уметь.
-		"без метки":  {"/admin?source=-", admin.Filter{Source: "-"}},
-		"не ответил": {"/admin?stage=-", admin.Filter{Stage: "-"}},
-		"вместе": {
-			"/admin?source=site_home&stage=no_signal",
-			admin.Filter{Source: "site_home", Stage: "no_signal"},
-		},
+		// осмысленные группы, и выбрать их нужно уметь.
+		"без метки":  {"/admin/api/overview?source=-", "-", ""},
+		"не ответил": {"/admin/api/overview?stage=-", "", "-"},
+		"вместе":     {"/admin/api/overview?source=site_home&stage=no_signal", "site_home", "no_signal"},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			r := fullFunnel()
-			get(t, r, tc.target)
+			call(t, r, overview, tc.target)
 
-			if r.got.Source != tc.want.Source || r.got.Stage != tc.want.Stage {
-				t.Errorf("фильтр = %+v, ожидали source=%q stage=%q", r.got, tc.want.Source, tc.want.Stage)
+			if r.got.Source != tc.source || r.got.Stage != tc.stage {
+				t.Errorf("фильтр = %+v, ожидали source=%q stage=%q", r.got, tc.source, tc.stage)
 			}
 			if !r.got.Since.IsZero() {
 				t.Errorf("период не задавали, а Since = %v", r.got.Since)
@@ -189,7 +235,7 @@ func TestFilterReachesTheReader(t *testing.T) {
 
 func TestPeriodIsACohortByArrival(t *testing.T) {
 	r := fullFunnel()
-	get(t, r, "/admin?days=7")
+	call(t, r, overview, "/admin/api/overview?days=7")
 
 	want := testNow.AddDate(0, 0, -7)
 	if !r.got.Since.Equal(want) {
@@ -197,12 +243,12 @@ func TestPeriodIsACohortByArrival(t *testing.T) {
 	}
 }
 
-// Период берётся только из известного списка: иначе адрес с мусором
-// молча покажет срез, которого никто не выбирал.
+// Период берётся только из известного списка: адрес с мусором не должен
+// молча показать срез, которого никто не выбирал.
 func TestUnknownPeriodMeansAllTime(t *testing.T) {
 	for _, raw := range []string{"1", "365", "abc", "-7", ""} {
 		r := fullFunnel()
-		get(t, r, "/admin?days="+raw)
+		call(t, r, overview, "/admin/api/overview?days="+raw)
 
 		if !r.got.Since.IsZero() {
 			t.Errorf("days=%q дал период %v, ожидали всё время", raw, r.got.Since)
@@ -210,78 +256,61 @@ func TestUnknownPeriodMeansAllTime(t *testing.T) {
 	}
 }
 
-// Клик по второму фильтру не должен сбрасывать первый: иначе до среза
-// «этот источник за эту неделю» невозможно добраться кликами.
-func TestFiltersCombineInLinks(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin?days=7&source=site_metod6x5")
+func TestHiddenListReachesEveryEndpoint(t *testing.T) {
+	endpoints := map[string]struct {
+		serve  func(*admin.Handler) http.HandlerFunc
+		target string
+	}{
+		"обзор":   {overview, "/admin/api/overview"},
+		"люди":    {people, "/admin/api/people"},
+		"человек": {person, "/admin/api/person?id=1"},
+	}
 
-	want := "/admin?days=7&amp;source=site_metod6x5&amp;stage=not_shipping"
-	if !strings.Contains(body, want) {
-		t.Errorf("клик по состоянию не сохраняет период и источник, ждали %s", want)
+	for name, e := range endpoints {
+		t.Run(name, func(t *testing.T) {
+			r := fullFunnel()
+			r.personOK = true
+			r.person = admin.Person{Lead: r.leads[0]}
+
+			call(t, r, e.serve, e.target, admin.WithHidden([]int64{577134700}))
+
+			if len(r.got.Hidden) != 1 || r.got.Hidden[0] != 577134700 {
+				t.Errorf("список скрытых не доехал до базы: %v", r.got.Hidden)
+			}
+		})
 	}
 }
 
-// По выбранной строке можно кликнуть второй раз и выйти из среза.
-func TestSelectedRowUnsetsItsFilter(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin?source=site_metod6x5")
-
-	// aria-current, а не aria-selected: выбранность строки вне грида —
-	// невалидная ARIA, а «текущий фильтр» это ровно aria-current.
-	// Ссылка ведёт на /admin без параметров: это и есть снятие фильтра.
-	if !strings.Contains(body, `<a class="row-link" href="/admin" aria-current="true">`) {
-		t.Error("повторный клик по выбранной строке не снимает фильтр и не помечен для скринридера")
-	}
-	if !strings.Contains(body, `class="picked"`) {
-		t.Error("выбранная строка не отмечена визуально")
-	}
-}
-
-func TestHiddenAccountsAreDeclared(t *testing.T) {
+func TestHiddenCountIsReported(t *testing.T) {
 	r := fullFunnel()
 	r.hidden = 1
 
-	_, body := get(t, r, "/admin", admin.WithHidden([]int64{577134700}))
-
-	if !strings.Contains(body, "скрыт 1 тестовый аккаунт") {
-		t.Error("страница молча выкидывает строки, не сказав об этом")
-	}
-	if len(r.got.Hidden) != 1 || r.got.Hidden[0] != 577134700 {
-		t.Errorf("список скрытых не доехал до базы: %v", r.got.Hidden)
-	}
-}
-
-// Ничего не скрыто — и подписи нет: постоянная строчка «скрыто 0» это шум.
-func TestNothingHiddenSaysNothing(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
-
-	if strings.Contains(body, "скрыт") {
-		t.Error("подпись про скрытых появилась там, где никого не скрывали")
-	}
-}
-
-// Карточка человека тоже уважает список скрытых: прямая ссылка не должна
-// быть способом обойти фильтр страницы.
-func TestPersonCardCarriesHiddenList(t *testing.T) {
-	r := fullFunnel()
-	r.personOK = true
-	r.person = admin.Person{Lead: r.leads[0]}
-
-	get(t, r, "/admin?id=763464443", admin.WithHidden([]int64{577134700}))
-
-	if len(r.got.Hidden) != 1 {
-		t.Errorf("карточка запрошена без списка скрытых: %v", r.got.Hidden)
+	_, body := call(t, r, overview, "/admin/api/overview", admin.WithHidden([]int64{577134700}))
+	if body["hidden"] != float64(1) {
+		t.Errorf("скрытые не посчитаны: %v", body["hidden"])
 	}
 }
 
 func TestUnknownPersonIsNotFound(t *testing.T) {
-	rec, _ := get(t, fullFunnel(), "/admin?id=1")
+	rec, body := call(t, fullFunnel(), person, "/admin/api/person?id=1")
 
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("код = %d, ожидали 404", rec.Code)
 	}
+	if body["error"] == nil {
+		t.Error("404 без объяснения")
+	}
 }
 
-func TestPersonCardShowsTheirPath(t *testing.T) {
+func TestPersonWithoutIDIsABadRequest(t *testing.T) {
+	rec, _ := call(t, fullFunnel(), person, "/admin/api/person")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("код = %d, ожидали 400", rec.Code)
+	}
+}
+
+func TestPersonCarriesTheirPath(t *testing.T) {
 	r := fullFunnel()
 	r.personOK = true
 	r.person = admin.Person{
@@ -292,49 +321,149 @@ func TestPersonCardShowsTheirPath(t *testing.T) {
 		},
 	}
 
-	_, body := get(t, r, "/admin?id=763464443")
+	_, body := call(t, r, person, "/admin/api/person?id=763464443")
 
-	for _, want := range []string{"Запустили бота", "Ответили про состояние", "stage=not_shipping", "ко всем"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("в карточке нет %q", want)
+	moments := body["moments"].([]any)
+	if len(moments) != 2 {
+		t.Fatalf("шагов %d, ожидали 2", len(moments))
+	}
+	if got := moments[1].(map[string]any)["label"]; got != "Ответили про состояние" {
+		t.Errorf("шаг не подписан по-человечески: %v", got)
+	}
+
+	// Ссылка на переписку нужна всем, включая тех, у кого нет @имени.
+	if got := body["person"].(map[string]any)["chat"]; got != "https://t.me/akhmadullintf" {
+		t.Errorf("ссылка на переписку = %v", got)
+	}
+}
+
+func TestPersonWithoutUsernameStillHasAChatLink(t *testing.T) {
+	r := fullFunnel()
+	r.personOK = true
+	r.person = admin.Person{Lead: admin.Lead{TelegramID: 811200011, FirstName: "Марина"}}
+
+	_, body := call(t, r, person, "/admin/api/person?id=811200011")
+	p := body["person"].(map[string]any)
+
+	if p["chat"] != "tg://user?id=811200011" {
+		t.Errorf("ссылка на переписку = %v", p["chat"])
+	}
+	if p["handle"] != "Марина" {
+		t.Errorf("человек без @имени остался без подписи: %v", p["handle"])
+	}
+}
+
+// Состояние приходит и кодом, и человеческой подписью: код нужен фильтру,
+// подпись — глазам, и вычислять её в браузере значит завести вторую
+// таблицу переводов.
+func TestStagesComeWithLabels(t *testing.T) {
+	_, body := call(t, fullFunnel(), overview, "/admin/api/overview")
+
+	labels := map[string]string{}
+	for _, raw := range body["segments"].([]any) {
+		s := raw.(map[string]any)
+		labels[s["stage"].(string)] = s["label"].(string)
+	}
+	if labels["not_shipping"] != "не выпускает стабильно" {
+		t.Errorf("состояние без подписи: %v", labels)
+	}
+	// Не ответившие остаются сегментом: иначе непонятно, потерялись люди
+	// до вопроса или после.
+	if labels[""] != "не ответил" {
+		t.Errorf("сегмент «не ответил» пропал: %v", labels)
+	}
+}
+
+// Страница маршрутов собирается из того же каталога, по которому отвечает
+// бот, поэтому разойтись с ним она не может.
+func TestRoutesMatchTheCatalog(t *testing.T) {
+	_, body := call(t, fullFunnel(), routes, "/admin/api/routes")
+
+	bySource := map[string]map[string]any{}
+	for _, raw := range body["routes"].([]any) {
+		r := raw.(map[string]any)
+		bySource[r["source"].(string)] = r
+	}
+
+	// Пришедшему со статьи предлагается не она же, а вторая.
+	if got := bySource["site_metod6x5"]["material"]; got != "blueprint-50m" {
+		t.Errorf("site_metod6x5 отдаёт %v", got)
+	}
+	if got := bySource["site_metod6x5"]["alreadyRead"]; got != "metod-6x5" {
+		t.Errorf("не сказано, что человек уже прочитал: %v", got)
+	}
+	// Метка без своего правила получает материал по умолчанию — и это
+	// должно быть видно, а не выглядеть как настроенный маршрут.
+	if got := bySource["site_home"]["fallback"]; got != true {
+		t.Errorf("site_home помечен как своё правило: %v", bySource["site_home"])
+	}
+	// Пустая метка тоже строка: по ней приходят из профиля.
+	if _, ok := bySource[""]; !ok {
+		t.Error("в таблице нет строки для пришедших без метки")
+	}
+	if body["fallback"] != "metod-6x5" {
+		t.Errorf("материал по умолчанию = %v", body["fallback"])
+	}
+}
+
+// Живая метка из базы попадает в таблицу, даже если правила для неё нет:
+// Reel запускают раньше, чем заводят маршрут.
+func TestLiveSourceAppearsInRoutes(t *testing.T) {
+	r := fullFunnel()
+	r.sources = append(r.sources, admin.Source{ID: "reel_20260820_razbor_01", Started: 2})
+
+	_, body := call(t, r, routes, "/admin/api/routes")
+
+	found := false
+	for _, raw := range body["routes"].([]any) {
+		if raw.(map[string]any)["source"] == "reel_20260820_razbor_01" {
+			found = true
+			if raw.(map[string]any)["fallback"] != true {
+				t.Error("метка без правила помечена как настроенная")
+			}
 		}
 	}
-}
-
-// Состояние и источник — разные вещи и живут в разных колонках. Раньше
-// они собирались из базы по порядку полей и молча менялись местами.
-func TestStageAndSourceDoNotSwap(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
-
-	stage := strings.Index(body, "не выпускает стабильно")
-	if stage < 0 {
-		t.Fatal("состояние не показано человеческим текстом")
-	}
-	if !strings.Contains(body, "site_metod6x5") {
-		t.Error("метка источника не показана")
-	}
-	// «not_shipping» голым кодом на странице означает, что в колонку
-	// состояния попало что-то нераспознанное.
-	if strings.Contains(body, "<code>not_shipping</code>") {
-		t.Error("состояние отрисовано как метка источника")
+	if !found {
+		t.Error("живая метка Reel не попала в таблицу маршрутов")
 	}
 }
 
-// Не ответившие остаются в таблице: иначе непонятно, потерялись люди до
-// вопроса или после него.
-func TestUnansweredStageIsASegment(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
+func TestAnswersAreNotCached(t *testing.T) {
+	rec, _ := call(t, fullFunnel(), overview, "/admin/api/overview")
 
-	if !strings.Contains(body, "не ответил") {
-		t.Error("сегмент «не ответил» пропал из таблицы")
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("личные данные кэшируются: %q", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
+		t.Errorf("Content-Type = %q", got)
 	}
 }
 
-func TestListSaysWhenItIsTruncated(t *testing.T) {
-	_, body := get(t, fullFunnel(), "/admin")
+// Интерфейс вшит в бинарник. Если он не собрался — это должно быть видно
+// сразу, а не белым экраном.
+func TestUIIsBuiltIn(t *testing.T) {
+	ui, built := admin.NewUI()
+	if !built {
+		t.Skip("интерфейс не собран: cd bot/admin-ui && npm ci && npm run build")
+	}
 
-	// Пришло 10, в списке одна строка — это должно быть сказано вслух.
-	if !strings.Contains(body, "Показаны последние 1 из 10") {
-		t.Error("обрезанный список не подписан")
+	for _, path := range []string{"/admin/", "/admin/sources/", "/admin/people/", "/admin/routes/", "/admin/person/"} {
+		rec := httptest.NewRecorder()
+		ui.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("%s → %d", path, rec.Code)
+		}
+		if rec.Body.Len() == 0 {
+			t.Errorf("%s отдал пустую страницу", path)
+		}
+	}
+
+	// Неизвестный адрес внутри админки — опечатка в ссылке. Показываем
+	// главную, но кодом 404, чтобы это не выглядело рабочей страницей.
+	rec := httptest.NewRecorder()
+	ui.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/admin/nonsense/", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("неизвестный адрес → %d, ожидали 404", rec.Code)
 	}
 }

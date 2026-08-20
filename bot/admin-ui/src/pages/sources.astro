@@ -1,0 +1,71 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Источники" page="sources">
+  <div class="bar" data-slice></div>
+
+  <section class="card">
+    <h2>Откуда приходят</h2>
+    <div data-sources></div>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, readSlice, href, el, share, sourceLabel, NO_VALUE } from '../lib/api.ts';
+  import { renderSlice } from '../lib/slice.ts';
+
+  const slice = readSlice();
+  renderSlice(document.querySelector('[data-slice]'), 'sources', slice);
+
+  const host = document.querySelector('[data-sources]');
+
+  api('overview')
+    .then((d) => render(d.sources))
+    .catch((err) => fail(host, err));
+
+  function render(list) {
+    if (!host) return;
+    host.innerHTML = '';
+
+    if (!list.length) {
+      host.append(el('p', { class: 'empty' },
+        'Пока никто не приходил. Метка появится здесь после первого запуска бота с ней — ',
+        'какие метки существуют, видно на странице «Маршруты».'));
+      return;
+    }
+
+    // Колонки идут по пути к деньгам, а не по порядку событий: «выбрал
+    // материал» есть у всех и источники не различает.
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Метка' }),
+        el('th', { scope: 'col', class: 'num', text: 'Пришло' }),
+        el('th', { scope: 'col', class: 'num', text: 'Открыли' }),
+        el('th', { scope: 'col', class: 'num', text: 'До предложения' }),
+        el('th', { scope: 'col', class: 'num', text: 'На эфире' }))));
+
+    const body = el('tbody');
+    for (const s of list) {
+      const value = s.id === '' ? NO_VALUE : s.id;
+      const active = slice.source === value;
+
+      const cell = (n) => el('td', { class: 'num' },
+        String(n), ' ', el('span', { class: 'of', text: share(n, s.started) }));
+
+      body.append(el('tr', { class: active ? 'picked' : '' },
+        el('td', {}, el('a', {
+          class: 'row-link',
+          href: href('people', slice, { source: active ? '' : value }),
+          'aria-current': active ? 'true' : undefined,
+        }, s.id ? el('code', { text: s.id }) : sourceLabel(''))),
+        el('td', { class: 'num', text: s.started }),
+        cell(s.opened), cell(s.offered), cell(s.waitlist)));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede' },
+      'Клик по метке открывает пришедших с неё списком. ',
+      'Доли считаются от пришедших с этой метки, а не от всех.'));
+  }
+</script>

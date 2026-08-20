@@ -1,0 +1,128 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Маршруты" page="routes">
+  <section class="card">
+    <h2>Какая метка что отдаёт</h2>
+    <p class="lede" style="margin:0 0 16px">
+      Это не документация, а то, чем бот отвечает прямо сейчас: таблица собирается из того
+      же каталога, по которому он работает, и разойтись с ним не может.
+    </p>
+    <div data-routes></div>
+  </section>
+
+  <section class="card">
+    <h2>Материалы</h2>
+    <div data-materials></div>
+  </section>
+
+  <section class="card">
+    <h2>Шаги, которые считаются</h2>
+    <div data-steps></div>
+  </section>
+
+  <section class="card">
+    <h2>Как завести метку под новый Reel</h2>
+    <ol class="lede" style="max-width:68ch">
+      <li>Придумать метку вида <code>reel_20260820_razbor_01</code>: только латиница, цифры, <code>_</code> и <code>-</code>.</li>
+      <li>Дать ссылку <code data-example>…?start=метка</code> — вручную в ответ на кодовое слово или автоматизацией.</li>
+      <li>Ничего не менять в боте: незнакомая метка сама попадёт в таблицу выше и получит материал по умолчанию.</li>
+      <li>Захотелось вести конкретный Reel на другой материал — тогда и только тогда нужна правка каталога.</li>
+    </ol>
+    <p class="lede">
+      Кодовое слово живёт на стороне Instagram. Бот его не видит и не должен: ему приходит
+      только метка, по которой потом считается вся воронка.
+    </p>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, el, sourceLabel } from '../lib/api.ts';
+
+  const host = document.querySelector('[data-routes]');
+
+  api('routes')
+    .then((d) => {
+      routes(d);
+      materials(d);
+      steps(d.steps);
+      const ex = document.querySelector('[data-example]');
+      if (ex && d.botLink) ex.textContent = d.botLink + '?start=метка';
+    })
+    .catch((err) => fail(host, err));
+
+  function routes(d) {
+    if (!host) return;
+    host.innerHTML = '';
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Метка' }),
+        el('th', { scope: 'col', text: 'Отдаёт' }),
+        el('th', { scope: 'col', text: 'Правило' }),
+        el('th', { scope: 'col', text: 'Ссылка' }))));
+
+    const body = el('tbody');
+    for (const r of d.routes) {
+      body.append(el('tr', {},
+        el('td', {}, r.source ? el('code', { text: r.source }) : el('span', { class: 'muted', text: sourceLabel('') })),
+        el('td', {},
+          el('div', { text: r.title }),
+          el('code', { class: 'muted', text: r.material })),
+        el('td', {},
+          r.fallback
+            ? el('span', { class: 'muted', text: 'по умолчанию' })
+            : el('span', { text: 'своё правило' }),
+          r.alreadyRead
+            ? el('div', { class: 'muted', style: 'font-size:.8rem', text: 'уже прочитал ' + r.alreadyRead })
+            : null),
+        el('td', {}, r.deepLink && r.source
+          ? el('a', { href: r.deepLink, text: 'открыть' })
+          : el('span', { class: 'muted', text: '—' }))));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede' },
+      'Материал по умолчанию — ', el('code', { text: d.fallback }),
+      '. Его получает каждый, у кого нет своего правила, включая незнакомые метки Reel.'));
+  }
+
+  function materials(d) {
+    const box = document.querySelector('[data-materials]');
+    if (!box) return;
+    box.innerHTML = '';
+
+    for (const m of d.materials) {
+      box.append(el('div', { style: 'margin-bottom:18px' },
+        el('div', {}, el('b', { text: m.title }), ' ', el('code', { class: 'muted', text: m.id })),
+        el('p', { class: 'lede', style: 'margin:4px 0', text: m.pitch }),
+        el('p', { class: 'lede', style: 'margin:4px 0', text: m.inside }),
+        el('p', { class: 'lede', style: 'margin:4px 0' },
+          'Кнопка: «', m.button, '» · ',
+          el('a', { href: (d.siteBase ?? '') + m.path, text: m.path }))));
+    }
+  }
+
+  function steps(list) {
+    const box = document.querySelector('[data-steps]');
+    if (!box) return;
+    box.innerHTML = '';
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Шаг' }),
+        el('th', { scope: 'col', text: 'Событие в базе' }),
+        el('th', { scope: 'col', text: 'Оговорка' }))));
+
+    const body = el('tbody');
+    for (const s of list) {
+      body.append(el('tr', {},
+        el('td', { text: s.label }),
+        el('td', {}, el('code', { text: s.name })),
+        el('td', {}, s.note ? el('span', { class: 'note', text: s.note }) : el('span', { class: 'muted', text: '—' }))));
+    }
+    table.append(body);
+    box.append(table);
+  }
+</script>
