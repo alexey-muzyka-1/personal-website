@@ -39,6 +39,7 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    <link rel="icon" href={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}favicon.svg`} type="image/svg+xml" />
     <meta property="og:type" content={article ? 'article' : 'website'} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -150,6 +151,20 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
     )}
   </head>
   <body>
+    <script is:inline>
+      // Внешние ссылки открываются в новой вкладке. Правится здесь, а не
+      // в каждом файле: иначе следующая ссылка снова уедет без target.
+      document.addEventListener('DOMContentLoaded', function () {
+        var host = location.hostname;
+        document.querySelectorAll('a[href^="http"]').forEach(function (a) {
+          try {
+            if (new URL(a.href).hostname === host) return;
+          } catch (e) { return; }
+          a.target = '_blank';
+          a.rel = 'noopener';
+        });
+      });
+    </script>
     <div class="container">
       <Nav />
       <slot />

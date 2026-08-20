@@ -98,21 +98,45 @@ a:hover { color: var(--accent); }
 .tile-top b { font-family: var(--serif); font-size: 1.02rem; font-weight: 500; color: var(--fg); }
 
 /* ---- nav ---- */
-.nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 28px 0 36px; }
-.nav .brand { font-family: var(--serif); font-weight: 500; font-size: 1rem; }
-.nav .links { display: flex; gap: 20px; font-size: 0.88rem; }
-/* 44px по высоте: раньше пункт был 22px и мимо него промахивались. */
-.nav .links a { color: var(--muted); display: inline-flex; align-items: center; min-height: 44px; }
-.nav .links a:hover { color: var(--fg); }
-.nav .links a[aria-current="page"] { color: var(--fg); }
-.nav-right { display: flex; align-items: center; gap: 18px; }
-/* На узком экране «Главная» дублирует логотип-ссылку слева — убираем, чтобы
-   пункты меню не наезжали на бренд. */
-@media (max-width: 600px) {
-  .nav { gap: 10px; }
-  .nav .links { gap: 14px; font-size: 0.84rem; }
-  .nav .links .link-home { display: none; }
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 28px 0 40px; }
+.nav .brand { font-family: var(--serif); font-weight: 500; font-size: 1.05rem; }
+.nav-right { display: flex; align-items: center; gap: 6px; }
+
+.nav-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 44px; padding: 0 10px;
+  font-family: var(--mono); font-size: 0.82rem;
+  color: var(--muted); cursor: pointer; list-style: none;
 }
+.nav-link:hover { color: var(--fg); }
+.nav-link[aria-current="page"] { color: var(--fg); }
+.nav-link::-webkit-details-marker { display: none; }
+
+/* Всё, кроме статей, живёт здесь: в навигации нечего выбирать. */
+.more { position: relative; }
+.more-chevron { width: 13px; height: 13px; transition: transform .15s ease; }
+.more[open] .more-chevron { transform: rotate(180deg); }
+.more[open] > summary { color: var(--fg); }
+.more-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  min-width: 190px; padding: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 34px -14px rgba(0, 0, 0, .45);
+}
+.more-menu a {
+  display: flex; align-items: center; min-height: 44px;
+  padding: 0 12px; border-radius: 8px;
+  font-size: 0.92rem; color: var(--muted);
+}
+.more-menu a:hover { background: color-mix(in srgb, var(--fg) 6%, transparent); color: var(--fg); }
+.more-menu a[aria-current="page"] { color: var(--fg); }
+
+@media (max-width: 600px) {
+  .nav { padding: 22px 0 30px; gap: 8px; }
+  .nav-link { padding: 0 8px; font-size: 0.8rem; }
+}
+
 .theme-toggle { background: none; border: 0; cursor: pointer; color: var(--muted); padding: 10px; margin: -10px; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; line-height: 0; }
 .theme-toggle:hover { color: var(--fg); }
 .theme-toggle svg { width: 18px; height: 18px; }
@@ -132,7 +156,7 @@ a:hover { color: var(--accent); }
   letter-spacing: -0.03em;
   line-height: 1.02;
 }
-.head .lede { color: var(--muted); margin: 6px 0 0; }
+.head .lede { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
 .hero-tagline {
   color: var(--fg);
   margin: 16px 0 0;
@@ -164,8 +188,8 @@ a:hover { color: var(--accent); }
 }
 .proof-src { font-size: 0.82rem; color: var(--muted); }
 .proof-src a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.hero-desc { color: var(--muted); margin: 16px 0 0; font-size: 1.05rem; }
-.subnote { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
+.hero-desc { color: var(--muted); margin: 16px 0 0; font-size: 1.08rem; max-width: 62ch; }
+.subnote { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; max-width: 62ch; }
 
 /* крупный заголовок секции + разделитель между блоками */
 .section-h {
@@ -178,6 +202,7 @@ a:hover { color: var(--accent); }
 .section-h .all { float: right; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.82rem; }
 .section-h .all a { color: var(--accent); }
 .section-major { border-top: 1px solid var(--line); margin-top: 72px; padding-top: 40px; }
+.section-major > p { max-width: 62ch; }
 .inline-links { display: flex; gap: 16px; margin: 18px 0 0; font-size: 0.9rem; flex-wrap: wrap; }
 .inline-links a { color: var(--accent); }
 .inline-links a:hover { text-decoration: underline; }
@@ -245,7 +270,7 @@ a:hover { color: var(--accent); }
 
 /* ---- табы подборок ---- */
 .tabs { display: flex; gap: 20px; margin: 0 0 24px; font-size: 0.92rem; }
-.tabs a { color: var(--muted); padding-bottom: 3px; }
+.tabs a { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); }
 .tabs a:hover { color: var(--fg); }
 .tabs a[aria-current="page"] { color: var(--fg); border-bottom: 1px solid var(--accent); }
 
@@ -261,7 +286,9 @@ a:hover { color: var(--accent); }
 .about p:last-child { margin: 0; }
 
 /* ---- таблица (центральный элемент) ---- */
-.tbl { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+/* Список из двух колонок не обязан растягиваться на всю ширину: между
+   названием и автором получалась дыра в треть экрана. */
+.tbl { width: 100%; max-width: 760px; border-collapse: collapse; font-size: 0.95rem; }
 .tbl th {
   text-align: left; font-weight: 600; color: var(--muted);
   font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase;
