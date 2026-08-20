@@ -28,6 +28,17 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script is:inline>
+      // Класс ставится до первой отрисовки, иначе блоки успеют мигнуть.
+      // Просит система меньше движения — не ставим вовсе.
+      (function () {
+        try {
+          if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            document.documentElement.classList.add('rise');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script is:inline>
       (function () {
         try {
           var t = localStorage.getItem('theme');
@@ -170,6 +181,48 @@ const socialImage = image ? new URL(image, Astro.site ?? Astro.url.origin) : und
       <slot />
       <Footer />
     </div>
+    <script is:inline>
+      // Появление при прокрутке. Только один раз на элемент: возвращаться
+      // назад и снова смотреть, как всё всплывает, — раздражает.
+      (function () {
+        var root = document.documentElement;
+        if (!root.classList.contains('rise')) return;
+
+        // Тот же список, что в global.css. Скрипт ничего не прячет, он
+        // только показывает: прятать после отрисовки — значит мигать.
+        var SELECTOR = '.head, .container > section, .list-cta, .more-line, .article-list';
+        var items = [].slice.call(document.querySelectorAll(SELECTOR));
+
+        function show(el, delay) {
+          if (delay) el.style.transitionDelay = delay + 'ms';
+          el.classList.add('is-in');
+        }
+
+        if (!('IntersectionObserver' in window)) {
+          items.forEach(function (el) { show(el, 0); });
+          return;
+        }
+
+        // Первый экран не ждёт прокрутки и появляется сразу, но по
+        // очереди: так он собирается, а не вспыхивает целиком.
+        var above = items.filter(function (el) {
+          return el.getBoundingClientRect().top < window.innerHeight * 0.9;
+        });
+        above.forEach(function (el, i) { show(el, Math.min(i, 3) * 70); });
+
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (!en.isIntersecting) return;
+            show(en.target, 0);
+            io.unobserve(en.target);
+          });
+        }, { rootMargin: '0px 0px -10% 0px', threshold: 0.04 });
+
+        items.forEach(function (el) {
+          if (above.indexOf(el) === -1) io.observe(el);
+        });
+      })();
+    </script>
     <script is:inline>
       document.getElementById('theme-toggle')?.addEventListener('click', function () {
         var r = document.documentElement;
