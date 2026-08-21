@@ -439,6 +439,52 @@ func TestScenarioComesFromTheRealBot(t *testing.T) {
 	}
 }
 
+// Постоянные метки видны в админке до первого человека. Иначе проверить
+// ссылку можно только после того, как по ней кто-то придёт, а до этого
+// непонятно, заведена она вообще или нет.
+func TestPermanentSourcesAreVisibleWithoutTraffic(t *testing.T) {
+	// Пустая база: ни одного события, ни одной атрибуции.
+	_, body := call(t, &stub{}, sources, "/admin/api/sources")
+
+	rows := map[string]map[string]any{}
+	for _, raw := range body["channels"].([]any) {
+		c := raw.(map[string]any)
+		rows[c["source"].(string)] = c
+	}
+
+	want := map[string]string{
+		"content":  "metod-6x5",
+		"pipeline": "blueprint-50m",
+	}
+	for source, material := range want {
+		c, ok := rows[source]
+		if !ok {
+			t.Errorf("метки %q нет в таблице при нулевом трафике", source)
+			continue
+		}
+		if c["material"] != material {
+			t.Errorf("метка %q отдаёт %v, ожидали %q", source, c["material"], material)
+		}
+		if c["started"] != float64(0) {
+			t.Errorf("у метки %q не ноль пришедших: %v", source, c["started"])
+		}
+		if c["where"] == "" || c["why"] == "" {
+			t.Errorf("метка %q без места и причины: %v", source, c)
+		}
+		if c["deepLink"] == "" {
+			t.Errorf("у метки %q нет ссылки, которую можно скопировать", source)
+		}
+	}
+
+	// Перекрёстные маршруты сайта на месте.
+	if got := rows["site_metod6x5"]["material"]; got != "blueprint-50m" {
+		t.Errorf("site_metod6x5 отдаёт %v", got)
+	}
+	if got := rows["site_blueprint50"]["material"]; got != "metod-6x5" {
+		t.Errorf("site_blueprint50 отдаёт %v", got)
+	}
+}
+
 // Живая метка из базы попадает в таблицу, даже если правила для неё нет:
 // Reel запускают раньше, чем заводят маршрут.
 func TestLiveSourceAppearsInRoutes(t *testing.T) {

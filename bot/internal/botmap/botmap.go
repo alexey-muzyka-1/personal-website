@@ -26,17 +26,19 @@ const (
 	channel  = "https://t.me/alexeymuzykablog"
 )
 
-// entries — точки входа. Метки живут в коде воронки, а описание места
-// на сайте — здесь: сайт и бот это две половины одной системы, и
-// человеку нужна строчка «откуда это вообще берётся».
+// entries — точки входа. Место ссылки берётся из каталога: сайт и бот
+// это две половины одной системы, и держать «где что стоит» в двух
+// местах значит однажды разойтись.
 var entries = []struct {
 	source string
 	where  string
 }{
-	{funnel.SourceSiteHome, "главная сайта, блок Telegram"},
-	{funnel.SourceSiteMethod6x5, "конец статьи «Метод 6 × 5»"},
-	{funnel.SourceSiteBlueprint50, "конец статьи про 50 млн просмотров"},
-	{funnel.SourceSiteHealth, "конец статьи про здоровье"},
+	{funnel.SourceSiteHome, ""},
+	{funnel.SourceSiteMethod6x5, ""},
+	{funnel.SourceSiteBlueprint50, ""},
+	{funnel.SourceSiteHealth, ""},
+	{funnel.SourceSocialContent, ""},
+	{funnel.SourceSocialPipeline, ""},
 	{"reel_razbor", "пример метки Reel — маршрута нет, значит материал по умолчанию"},
 	{"", "человек открыл бота без метки: из профиля, из поиска, из старого поста"},
 }
@@ -89,7 +91,13 @@ func renderEntries(ctx context.Context, b *strings.Builder) error {
 		if e.source == "" {
 			label = "без метки"
 		}
-		fmt.Fprintf(b, "| %s | %s | %s |\n", label, e.where, m.Title)
+		where := e.where
+		for _, rt := range sess.catalog.RouteTable() {
+			if rt.Source == e.source && rt.Where != "" {
+				where = rt.Where
+			}
+		}
+		fmt.Fprintf(b, "| %s | %s | %s |\n", label, where, m.Title)
 	}
 
 	b.WriteString("\nМетка попадает в каждое событие человека, поэтому путь ")

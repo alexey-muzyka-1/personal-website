@@ -89,3 +89,81 @@ func TestRouteToUnknownMaterialFails(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnknownMaterial", err)
 	}
 }
+
+// Постоянные метки соцсетей. В отличие от одноразовых меток Reel они
+// живут в профиле и в закреплённых постах, поэтому обещание у каждой своё
+// и материал тоже свой.
+func TestSocialRoutesAreFixed(t *testing.T) {
+	c := funnel.DefaultCatalog()
+
+	cases := map[string]string{
+		funnel.SourceSocialContent:  funnel.MaterialMethod6x5,
+		funnel.SourceSocialPipeline: funnel.MaterialBlueprint50,
+	}
+	for source, want := range cases {
+		if got := c.ForSource(source).ID; got != want {
+			t.Errorf("метка %q отдаёт %q, ожидали %q", source, got, want)
+		}
+	}
+
+	// Совпадение content со стартовым материалом не должно превращать
+	// маршрут в «по умолчанию»: стартовый когда-нибудь поменяется, а эта
+	// ссылка поехать следом не должна.
+	for _, rt := range c.RouteTable() {
+		if rt.Source == funnel.SourceSocialContent && rt.Fallback {
+			t.Error("content помечен как материал по умолчанию, а у него своё правило")
+		}
+	}
+}
+
+// Перекрёстные маршруты сайта должны пережить появление соцсетевых:
+// пришедшему со статьи бот отдаёт не её же, а вторую.
+func TestSiteCrossRoutesSurvive(t *testing.T) {
+	c := funnel.DefaultCatalog()
+
+	cases := map[string]string{
+		funnel.SourceSiteMethod6x5:   funnel.MaterialBlueprint50,
+		funnel.SourceSiteBlueprint50: funnel.MaterialMethod6x5,
+	}
+	for source, want := range cases {
+		if got := c.ForSource(source).ID; got != want {
+			t.Errorf("метка %q отдаёт %q, ожидали %q", source, got, want)
+		}
+	}
+}
+
+// Постоянная метка обязана быть видна в админке до первого человека:
+// иначе проверить ссылку можно только после того, как по ней кто-то
+// придёт, а до этого непонятно, заведена она вообще или нет.
+func TestPermanentSourcesShowWithoutTraffic(t *testing.T) {
+	table := funnel.DefaultCatalog().RouteTable()
+
+	seen := map[string]funnel.Route{}
+	for _, rt := range table {
+		seen[rt.Source] = rt
+	}
+
+	for _, source := range []string{
+		funnel.SourceSocialContent, funnel.SourceSocialPipeline,
+		funnel.SourceSiteHome, funnel.SourceSiteMethod6x5,
+		funnel.SourceSiteBlueprint50, funnel.SourceSiteHealth,
+	} {
+		rt, ok := seen[source]
+		if !ok {
+			t.Errorf("метки %q нет в таблице маршрутов", source)
+			continue
+		}
+		if rt.Where == "" {
+			t.Errorf("у метки %q не сказано, где стоит ссылка", source)
+		}
+		if rt.Why == "" {
+			t.Errorf("у метки %q не сказано, почему отдаётся этот материал", source)
+		}
+	}
+
+	// Пустая метка тоже строка: по ней приходят из профиля и из старых
+	// постов, и терять этих людей из отчёта нельзя.
+	if _, ok := seen[""]; !ok {
+		t.Error("в таблице нет строки для пришедших без метки")
+	}
+}

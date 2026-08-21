@@ -275,6 +275,8 @@ func (h *Handler) ServeSources(w http.ResponseWriter, r *http.Request) {
 		Path        string `json:"path"`
 		Fallback    bool   `json:"fallback"`
 		AlreadyRead string `json:"alreadyRead"`
+		Where       string `json:"where"`
+		Why         string `json:"why"`
 		DeepLink    string `json:"deepLink"`
 	}
 
@@ -290,7 +292,8 @@ func (h *Handler) ServeSources(w http.ResponseWriter, r *http.Request) {
 			Source: rt.Source, Started: s.Started, Opened: s.Opened,
 			Offered: s.Offered, Waitlist: s.Waitlist,
 			Material: rt.Material.ID, Title: rt.Material.Title, Path: rt.Material.Path,
-			Fallback: rt.Fallback, AlreadyRead: rt.AlreadyRead, DeepLink: link,
+			Fallback: rt.Fallback, AlreadyRead: rt.AlreadyRead,
+			Where: rt.Where, Why: rt.Why, DeepLink: link,
 		})
 	}
 
