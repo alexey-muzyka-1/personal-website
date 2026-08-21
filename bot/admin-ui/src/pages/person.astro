@@ -48,7 +48,10 @@ import Admin from '../layouts/Admin.astro';
     add('Состояние', el('span', {},
       p.stageLabel,
       p.waitlist ? el('b', { class: 'good', text: ' · записан на эфир' }) : null));
-    add('Забрал', p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }));
+    add('Разбор', p.materials
+      ? el('span', {}, el('code', { text: p.materials }),
+          el('span', { class: 'muted', text: p.opened ? ' · открыл' : ' · не открыл' }))
+      : el('span', { class: 'muted', text: 'не выдавался' }));
     add('Канал', channelLine(d.channel));
     host.append(dl);
 

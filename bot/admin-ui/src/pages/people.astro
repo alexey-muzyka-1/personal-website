@@ -71,7 +71,7 @@ import Admin from '../layouts/Admin.astro';
         el('th', { scope: 'col', text: 'Пришёл' }),
         el('th', { scope: 'col', text: 'Откуда' }),
         el('th', { scope: 'col', text: 'Состояние' }),
-        el('th', { scope: 'col', text: 'Забрал' }),
+        el('th', { scope: 'col', text: 'Разбор' }),
         el('th', { scope: 'col', text: 'Канал' }),
         el('th', { scope: 'col', text: '' }))));
 
@@ -90,8 +90,13 @@ import Admin from '../layouts/Admin.astro';
           // это потолок для всего, что мы собирались человеку написать.
           p.blocked ? el('div', { class: 'bad', text: 'заблокировал бота' }) : null),
         el('td', {},
-          p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }),
-          p.opened ? el('div', { class: 'muted', text: 'открыл' }) : null),
+          p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'не выдавался' }),
+          // Отрицание пишется вслух. Пустое место под материалом читалось
+          // как «открыл» — глазу нечем отличить «не открыл» от «мы не
+          // дописали строку».
+          p.materials
+            ? el('div', { class: 'muted', text: p.opened ? 'открыл' : 'не открыл' })
+            : null),
         el('td', {}, channelCell(p)),
         el('td', {}, el('a', { href: p.chat, text: 'написать' }))));
     }
