@@ -8,9 +8,9 @@ import Admin from '../layouts/Admin.astro';
   <section class="card">
     <h2>Откуда приходят и что получают</h2>
     <p class="lede" style="margin:0 0 16px">
-      Одна строка — один канал: сколько привёл, что бот ему пообещал и докуда люди дошли.
-      Метка живёт независимо от трафика, поэтому молчащие остаются в списке — их важно
-      видеть именно тогда, когда они молчат.
+      Одна строка — одно место, откуда человек попадает в бота: где стоит ссылка,
+      что он получает и почему именно это. Метка живёт независимо от трафика, поэтому
+      молчащие остаются в списке — их важно видеть именно тогда, когда они молчат.
     </p>
     <div data-channels></div>
   </section>
@@ -21,7 +21,7 @@ import Admin from '../layouts/Admin.astro';
   </section>
 
   <section class="card">
-    <h2>Как завести канал под новый Reel</h2>
+    <h2>Как завести метку под новый Reel</h2>
     <ol class="lede" style="max-width:68ch">
       <li>Придумать метку вида <code>reel_20260820_razbor_01</code>: латиница, цифры, <code>_</code> и <code>-</code>.</li>
       <li>Отдавать ссылку <code data-example>…?start=метка</code> в ответ на кодовое слово — руками или автоматизацией.</li>
@@ -62,8 +62,8 @@ import Admin from '../layouts/Admin.astro';
     // у всех и каналы не различает.
     const table = el('table', {},
       el('thead', {}, el('tr', {},
-        el('th', { scope: 'col', text: 'Канал' }),
-        el('th', { scope: 'col', text: 'Что отдаёт' }),
+        el('th', { scope: 'col', text: 'Откуда приходит' }),
+        el('th', { scope: 'col', text: 'Что получает и почему' }),
         el('th', { scope: 'col', class: 'num', text: 'Пришло' }),
         el('th', { scope: 'col', class: 'num', text: 'Открыли' }),
         el('th', { scope: 'col', class: 'num', text: 'До предложения' }),
@@ -78,28 +78,30 @@ import Admin from '../layouts/Admin.astro';
 
       body.append(el('tr', { class: active ? 'picked' : '' },
         el('td', {},
+          // Сверху место человеческими словами, метка под ним: метку
+          // читают глазами раз в месяц, а «где это стоит» — каждый раз.
           el('a', {
             class: 'row-link',
             href: href('people', slice, { source: active ? '' : value }),
             'aria-current': active ? 'true' : undefined,
-          }, c.source ? el('code', { text: c.source }) : sourceLabel('')),
+            text: c.where || (c.source ? 'метка Reel' : sourceLabel('')),
+          }),
+          c.source ? el('div', {}, el('code', { class: 'muted', text: c.source })) : null,
           c.deepLink && c.source
             ? el('div', {}, el('a', { class: 'muted', style: 'font-size:.8rem', href: c.deepLink, text: 'открыть ссылку' }))
             : null),
         el('td', {},
           el('div', { text: c.title }),
-          el('div', { class: 'muted', style: 'font-size:.8rem' },
-            c.fallback ? 'по умолчанию' : 'своё правило',
-            c.alreadyRead ? ` · уже прочитал ${c.alreadyRead}` : '')),
+          el('div', { class: 'muted', style: 'font-size:.8rem', text: c.why })),
         el('td', { class: 'num', text: c.started }),
         cell(c.opened), cell(c.offered), cell(c.waitlist)));
     }
     table.append(body);
     host.append(table);
     host.append(el('p', { class: 'lede' },
-      'Клик по каналу открывает пришедших с него списком. Доли считаются от пришедших с этого канала. ',
-      'Материал по умолчанию — ', el('code', { text: fallback }),
-      ': его получает каждый, у кого нет своего правила, включая незнакомые метки Reel.'));
+      'Клик по строке открывает пришедших оттуда списком. Доли считаются от пришедших с этого места. ',
+      'Стартовый разбор — ', el('code', { text: fallback }),
+      ': его получает каждый, для кого не выбран другой, включая незнакомые метки Reel.'));
   }
 
   function materials(d) {

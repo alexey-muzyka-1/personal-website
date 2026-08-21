@@ -100,6 +100,20 @@ const (
 	SourceSiteHealth      = "site_health"
 )
 
+// Постоянные метки для соцсетей. В отличие от меток Reel они не
+// одноразовые: живут в профиле и в закреплённых постах, поэтому у каждой
+// свой материал, а не стартовый по умолчанию.
+//
+// Названия короткие специально: их набирают руками в ссылке и диктуют
+// вслух, а `reel_20260821_razbor_01` для этого не годится.
+const (
+	// SourceSocialContent — про то, что снимать: ведёт на метод 6 × 5.
+	SourceSocialContent = "content"
+	// SourceSocialPipeline — про то, как поставить выпуск на поток:
+	// ведёт на разбор системы целиком.
+	SourceSocialPipeline = "pipeline"
+)
+
 // DefaultCatalog — два материала, которые уже опубликованы на сайте и
 // перечислены в тикете 01: система постинга и разбор на 50 млн просмотров.
 func DefaultCatalog() Catalog {
@@ -136,6 +150,14 @@ func DefaultCatalog() Catalog {
 	routes := map[string]string{
 		SourceSiteMethod6x5:   MaterialBlueprint50,
 		SourceSiteBlueprint50: MaterialMethod6x5,
+
+		// Постоянные метки соцсетей. Обещание в посте разное, поэтому и
+		// материал разный: «что снимать» — метод, «как поставить на
+		// поток» — разбор системы. Совпадение content со стартовым
+		// материалом случайное: правило всё равно своё, и если стартовый
+		// когда-нибудь поменяется, эта ссылка не должна поехать следом.
+		SourceSocialContent:  MaterialMethod6x5,
+		SourceSocialPipeline: MaterialBlueprint50,
 	}
 	for source, material := range routes {
 		c, err = c.WithRoute(source, material)
@@ -150,6 +172,24 @@ func DefaultCatalog() Catalog {
 		SourceSiteBlueprint50: MaterialBlueprint50,
 	}
 	return c
+}
+
+// why — одна фраза о том, почему человек получает именно этот материал.
+func why(source, alreadyRead string, mapped bool, byID map[string]Material) string {
+	switch {
+	case alreadyRead != "":
+		title := alreadyRead
+		if m, ok := byID[alreadyRead]; ok {
+			title = "«" + m.Title + "»"
+		}
+		return "человек только что прочитал " + title + " — второй раз её не предлагаем"
+	case mapped:
+		return "для этой метки выбран отдельный материал"
+	case source == "":
+		return "пришёл без метки: из профиля, из поиска или из старого поста"
+	default:
+		return "отдельного материала для метки нет — идёт стартовый разбор"
+	}
 }
 
 // WithRoute привязывает source_id к материалу и возвращает новый каталог:
@@ -218,6 +258,20 @@ func (c Catalog) Materials() []Material {
 	return out
 }
 
+// places — где физически стоит ссылка с этой меткой.
+//
+// Живёт рядом с самими метками, а не в отчёте: место — часть смысла
+// метки. Без него в админке строка «site_metod6x5» ничего не говорит
+// человеку, который не помнит наизусть, что где стоит на сайте.
+var places = map[string]string{
+	SourceSiteHome:        "главная сайта, блок про Telegram",
+	SourceSiteMethod6x5:   "конец статьи «Метод 6 × 5»",
+	SourceSiteBlueprint50: "конец статьи про 50 млн просмотров",
+	SourceSiteHealth:      "конец статьи про здоровье",
+	SourceSocialContent:   "постоянная метка соцсетей: про идеи и съёмку",
+	SourceSocialPipeline:  "постоянная метка соцсетей: про систему выпуска",
+}
+
 // Route — что бот отдаст по конкретной метке источника.
 //
 // Нужен странице маршрутов в админке: какие метки существуют, куда каждая
@@ -233,6 +287,14 @@ type Route struct {
 	Fallback bool
 	// AlreadyRead — что человек прочитал до бота, если пришёл со статьи.
 	AlreadyRead string
+	// Where — где стоит ссылка. Пусто у меток, которых нет на сайте:
+	// у Reel место знает только автор.
+	Where string
+	// Why — почему бот отдаёт именно этот материал, человеческим языком.
+	// Фраза собирается здесь, а не в интерфейсе: это продуктовая логика,
+	// и «своё правило / по умолчанию» её не объясняет никому, кроме того,
+	// кто писал каталог.
+	Why string
 }
 
 // RouteTable — маршруты целиком, включая метки сайта без своего правила:
@@ -250,6 +312,7 @@ func (c Catalog) RouteTable(extra ...string) []Route {
 	}
 	for _, s := range []string{
 		SourceSiteHome, SourceSiteMethod6x5, SourceSiteBlueprint50, SourceSiteHealth,
+		SourceSocialContent, SourceSocialPipeline,
 	} {
 		add(s)
 	}
@@ -272,11 +335,14 @@ func (c Catalog) RouteTable(extra ...string) []Route {
 		if mapped {
 			material = c.byID[id]
 		}
+		read := c.readFrom[s]
 		routes = append(routes, Route{
 			Source:      s,
 			Material:    material,
 			Fallback:    !mapped,
-			AlreadyRead: c.readFrom[s],
+			AlreadyRead: read,
+			Where:       places[s],
+			Why:         why(s, read, mapped, c.byID),
 		})
 	}
 	return routes
