@@ -1,0 +1,55 @@
+---
+// Одна подборка книг: шапка, вкладки и таблица.
+//
+// Вёрстка живёт здесь, а не в каждой странице подборки. Страницы отличаются
+// ровно одним — какую категорию показывать.
+import { getCollection } from 'astro:content';
+import { bookCategories, booksLede, type BookCategory } from '../data/books';
+
+interface Props {
+  category: BookCategory;
+}
+const { category } = Astro.props;
+
+const books = (await getCollection('books'))
+  .filter((b) => b.data.category === category)
+  // Свежие сверху. У книг без даты её просто нет — они уходят вниз, а не
+  // притворяются сегодняшними.
+  .sort((a, b) => (b.data.date?.getTime() ?? 0) - (a.data.date?.getTime() ?? 0));
+---
+
+<header class="head">
+  <div class="head-text">
+    <h1>Книги</h1>
+    <p class="lede">{booksLede}</p>
+  </div>
+</header>
+
+<section class="block">
+  <div class="tabs">
+    {bookCategories.map((c) => (
+      <a href={c.href} aria-current={c.id === category ? 'page' : undefined}>{c.label}</a>
+    ))}
+  </div>
+
+  {books.length ? (
+    <table class="tbl">
+      <thead><tr><th class="num">#</th><th>Книга</th><th>Автор</th></tr></thead>
+      <tbody>
+        {books.map((b, i) => (
+          <tr>
+            <td class="num">{i + 1}</td>
+            <td class="t">
+              {b.data.link
+                ? <a href={b.data.link}>{b.data.title} <span class="ext">↗</span></a>
+                : b.data.title}
+            </td>
+            <td class="by">{b.data.author}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p class="lede">Здесь пока пусто.</p>
+  )}
+</section>
