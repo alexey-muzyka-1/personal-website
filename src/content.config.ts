@@ -4,7 +4,7 @@ import { glob } from 'astro/loaders';
 // Книги. Подборки через поле category:
 //   hudozhestvennaya — художественная
 //   biznes — бизнес-литература
-//   pokolenie — как говорить с детьми и слышать их
+//   deti — как говорить с детьми и слышать их
 // Один .md = одна книга. link = ссылка на Википедию (или любую).
 //
 // С Astro 6 коллекции обязаны объявлять loader и жить в этом файле,
@@ -14,7 +14,7 @@ const books = defineCollection({
   schema: z.object({
     title: z.string(),
     author: z.string(),
-    category: z.enum(['hudozhestvennaya', 'biznes', 'pokolenie']),
+    category: z.enum(['hudozhestvennaya', 'biznes', 'deti']),
     link: z.string().optional(),
     why: z.string().optional(),
     date: z.coerce.date().optional(),

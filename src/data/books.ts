@@ -10,7 +10,7 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 export const bookCategories = [
   { id: 'hudozhestvennaya', label: 'Художественная', href: `${base}books` },
   { id: 'biznes', label: 'Бизнес', href: `${base}books/business` },
-  { id: 'pokolenie', label: 'Новое поколение', href: `${base}books/pokolenie` },
+  { id: 'deti', label: 'Дети', href: `${base}books/deti` },
 ] as const;
 
 export type BookCategory = (typeof bookCategories)[number]['id'];
