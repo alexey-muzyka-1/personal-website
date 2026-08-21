@@ -66,15 +66,20 @@ const { cover } = Astro.props;
     /* Метка сверху — как на обложках статей: маленький знак и адрес.
        Картинку смотрят вырванной из контекста, и чья она должно быть
        понятно раньше, чем прочитан заголовок. */
+    /* Весь мелкий текст одного кегля. Знак, адрес, рубрика и подвал —
+       разные роли, но различаются они местом, цветом и насыщенностью.
+       Три близких размера вместо одного создавали не иерархию, а
+       случайность: 17, 19 и 20 глаз не различает, а править их потом
+       приходится по отдельности. Ступени кегля: 20 → 26 → 62/76. */
     .mark { display: flex; align-items: center; gap: 14px; }
     .mark .badge {
       width: 40px; height: 40px; border-radius: 10px;
       border: 1px solid var(--line);
       display: grid; place-items: center;
-      font-size: 17px; font-weight: 600; letter-spacing: .06em;
+      font-size: 20px; font-weight: 600; letter-spacing: .06em;
       color: var(--fg);
     }
-    .mark .site { font-size: 19px; color: var(--muted); }
+    .mark .site { font-size: 20px; color: var(--muted); }
 
     .kicker {
       font-size: 20px; font-weight: 600;
