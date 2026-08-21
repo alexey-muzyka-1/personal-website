@@ -33,7 +33,10 @@ import Admin from '../layouts/Admin.astro';
     host.append(el('p', { class: 'muted' },
       el('span', { class: 'id', text: p.telegramId }),
       ' · ',
-      el('a', { href: p.chat, text: 'написать в Telegram' })));
+      // Ссылка на переписку остаётся: посмотреть диалог можно всегда.
+      // Но обещать, что сообщение дойдёт, нельзя — оно не дойдёт.
+      el('a', { href: p.chat, text: 'написать в Telegram' }),
+      p.blocked ? el('b', { class: 'bad', text: ' · заблокировал бота, сообщение не дойдёт' }) : null));
 
     const dl = el('dl', { class: 'dl card' });
     const add = (k, v) => { dl.append(el('dt', { text: k }), el('dd', {}, v)); };
@@ -46,6 +49,7 @@ import Admin from '../layouts/Admin.astro';
       p.stageLabel,
       p.waitlist ? el('b', { class: 'good', text: ' · записан на эфир' }) : null));
     add('Забрал', p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }));
+    add('Канал', channelLine(d.channel));
     host.append(dl);
 
     const card = el('section', { class: 'card' }, el('h2', { text: 'Что делал' }));
@@ -73,5 +77,21 @@ import Admin from '../layouts/Admin.astro';
       card.append(table);
     }
     host.append(card);
+  }
+
+  // Про канал у человека три разных «нет»: мы ещё не спрашивали, он не
+  // подписан, он отписался. Свести их в одно слово — потерять единственную
+  // строчку, по которой видно, что с этим человеком делать.
+  function channelLine(c) {
+    if (!c) return el('span', { class: 'muted', text: 'сверка ещё не проходила' });
+    if (c.subscribed) {
+      return el('span', {},
+        el('b', { class: 'good', text: 'подписан' }),
+        c.joined ? ` · с ${c.joined}, ${c.days} дн.` : ' · подписался до начала замера');
+    }
+    if (c.left) {
+      return el('span', {}, el('b', { class: 'bad', text: 'отписался' }), ` · ${c.left}`);
+    }
+    return el('span', { class: 'muted', text: 'не подписан' });
   }
 </script>

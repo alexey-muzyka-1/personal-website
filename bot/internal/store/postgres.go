@@ -105,6 +105,16 @@ func (s *pgStore) SaveUser(ctx context.Context, u funnel.User, at time.Time) err
 	return nil
 }
 
+func (s *pgStore) HasUser(ctx context.Context, telegramID int64) (bool, error) {
+	const query = `select exists(select 1 from users where telegram_id = $1)`
+
+	var has bool
+	if err := s.tx.QueryRow(ctx, query, telegramID).Scan(&has); err != nil {
+		return false, fmt.Errorf("checking user %d: %w", telegramID, err)
+	}
+	return has, nil
+}
+
 func (s *pgStore) SetUserStage(ctx context.Context, telegramID int64, stage funnel.Stage) error {
 	const query = `update users set stage = $2 where telegram_id = $1`
 

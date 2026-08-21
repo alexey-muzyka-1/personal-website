@@ -119,6 +119,20 @@ https://alexeymuzyka.com/articles/metod-6x5?utm_campaign=site_home&utm_medium=bo
 - **Открыть Viralmaxing** → https://viralmaxing.com/?utm_source=lesha-bot&utm_medium=referral&utm_campaign=funnel
 - **Мне это не подходит** → `stage:other`
 
+### 5. Нажал «Мне это не подходит»
+
+Вход: кнопка `stage:other` после показанного оффера
+
+```
+Понял, не буду навязывать.
+
+Тогда просто оставлю канал: там разборы и находки появляются раньше, чем доезжают до сайта.
+```
+
+Кнопки:
+
+- **Читать канал** → https://t.me/alexeymuzykablog
+
 ### 4в. Ответил «Другая ситуация»
 
 Вход: кнопка `stage:other`
@@ -133,7 +147,7 @@ https://alexeymuzyka.com/articles/metod-6x5?utm_campaign=site_home&utm_medium=bo
 - **Скорее рывками** → `stage:not_shipping`
 - **Регулярно** → `stage:no_signal`
 
-Два оффера одновременно не показываются никогда: у каждого состояния ровно один следующий шаг. «Другая ситуация» не тупик и не меню — один уточняющий вопрос возвращает человека в одно из двух состояний.
+Два оффера одновременно не показываются никогда: у каждого состояния ровно один следующий шаг. «Другая ситуация» на входе — уточняющий вопрос, возвращающий человека в одно из двух состояний. Та же кнопка после показанного оффера означает отказ, и тогда вопрос был бы кругом: вместо него предлагается канал — единственное, что можно дать бесплатно.
 
 ## Что записывается
 
@@ -145,6 +159,7 @@ https://alexeymuzyka.com/articles/metod-6x5?utm_campaign=site_home&utm_medium=bo
 | ответил про состояние | `stage_answered` | метка `site_metod6x5`, `stage` = not_shipping |
 | ответил про состояние | `offer_shown` | метка `site_metod6x5`, `offer` = waitlist, `stage` = not_shipping |
 | записался на эфир | `waitlist_joined` | метка `site_metod6x5`, `offer` = waitlist |
+| записался на эфир | `channel_offered` | метка `site_metod6x5`, `place` = after_waitlist |
 
 Плюс на каждый `/start` пишется касание в `attributions`. Таблица только пополняется: первое касание остаётся первым навсегда, а приход из другого Reel не затирает историю.
 

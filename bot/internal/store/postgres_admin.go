@@ -26,7 +26,8 @@ import (
 // из site_home» в одной таблице и в другой считалось бы по разным
 // правилам, и цифры перестали бы сходиться между собой.
 //
-// $1 скрытые id, $2 граница периода, $3 источник, $4 состояние.
+// $1 скрытые id, $2 граница периода, $3 источник, $4 состояние,
+// $5 отношение к каналу.
 const cohort = `
 	with visible as (
 		select
@@ -46,31 +47,50 @@ const cohort = `
 		  and ($2::timestamptz is null or u.first_seen_at >= $2)
 	),
 	people as (
-		select * from visible
+		select v.* from visible v
 		where case
 				when $3::text = ''  then true
-				when $3::text = '-' then source = ''
-				else source = $3
+				when $3::text = '-' then v.source = ''
+				else v.source = $3
 			  end
 		  and case
 				when $4::text = ''  then true
-				when $4::text = '-' then stage = ''
-				else stage = $4
+				when $4::text = '-' then v.stage = ''
+				else v.stage = $4
+			  end
+		  -- Столбцы здесь подписаны алиасом не для красоты: без него
+		  -- telegram_id внутри exists разрешался бы в telegram_id
+		  -- channel_members, условие всегда было бы истинным, и фильтр
+		  -- по каналу молча не фильтровал бы ничего.
+		  and case
+				when $5::text = ''       then true
+				when $5::text = 'member' then exists(
+					select 1 from channel_members cm
+					where cm.telegram_id = v.telegram_id and cm.subscribed)
+				when $5::text = 'left'   then exists(
+					select 1 from channel_members cm
+					where cm.telegram_id = v.telegram_id
+					  and not cm.subscribed and cm.left_at is not null)
+				when $5::text = '-'      then not exists(
+					select 1 from channel_members cm
+					where cm.telegram_id = v.telegram_id and cm.subscribed)
+				else true
 			  end
 	)`
 
 // args раскладывает фильтр в параметры запроса в том порядке, в каком их
 // ждёт cohort.
 func args(f admin.Filter) []any {
-	hidden := f.Hidden
-	if hidden == nil {
-		hidden = []int64{}
+	return []any{hidden(f), since(f), f.Source, f.Stage, f.Channel}
+}
+
+// since — граница периода как параметр запроса. Нулевое время означает
+// «за всё время», и в SQL это NULL, а не начало эпохи.
+func since(f admin.Filter) any {
+	if f.Since.IsZero() {
+		return nil
 	}
-	var since any
-	if !f.Since.IsZero() {
-		since = f.Since
-	}
-	return []any{hidden, since, f.Source, f.Stage}
+	return f.Since
 }
 
 func (p *Postgres) Stages(ctx context.Context, f admin.Filter) (map[string]admin.Stage, error) {
@@ -192,14 +212,34 @@ const leadColumns = `
 	exists(
 		select 1 from events e
 		where e.telegram_id = p.telegram_id and e.name = 'waitlist_joined'
-	) as waitlist`
+	) as waitlist,
+	exists(
+		select 1 from channel_members cm
+		where cm.telegram_id = p.telegram_id and cm.subscribed
+	) as subscribed,
+	exists(
+		select 1 from channel_members cm
+		where cm.telegram_id = p.telegram_id
+		  and not cm.subscribed and cm.left_at is not null
+	) as churned,
+	-- Блокировка снимается и ставится сколько угодно раз, поэтому важен
+	-- не факт события, а последнее из пары. Отдельной колонки в users
+	-- нет намеренно: два места для одного факта однажды разойдутся.
+	coalesce((
+		select e.name = 'bot_blocked'
+		from events e
+		where e.telegram_id = p.telegram_id
+		  and e.name in ('bot_blocked', 'bot_unblocked')
+		order by e.occurred_at desc, e.id desc
+		limit 1
+	), false) as blocked`
 
 func (p *Postgres) Leads(ctx context.Context, f admin.Filter, limit int) ([]admin.Lead, error) {
 	const query = cohort + `
 		select` + leadColumns + `
 		from people p
 		order by p.first_seen_at desc
-		limit $5`
+		limit $6`
 
 	rows, err := p.pool.Query(ctx, query, append(args(f), limit)...)
 	if err != nil {
@@ -223,7 +263,7 @@ func (p *Postgres) Person(ctx context.Context, telegramID int64, f admin.Filter)
 	const leadQuery = cohort + `
 		select` + leadColumns + `
 		from people p
-		where p.telegram_id = $5`
+		where p.telegram_id = $6`
 
 	rows, err := p.pool.Query(ctx, leadQuery, append(args(f), telegramID)...)
 	if err != nil {
@@ -268,15 +308,15 @@ func (p *Postgres) Person(ctx context.Context, telegramID int64, f admin.Filter)
 // а не берём длину списка: id в конфиге может не соответствовать никому,
 // и тогда подпись «скрыт 1 аккаунт» была бы неправдой.
 func (p *Postgres) HiddenPeople(ctx context.Context, f admin.Filter) (int, error) {
-	hidden := f.Hidden
-	if len(hidden) == 0 {
+	ids := f.Hidden
+	if len(ids) == 0 {
 		return 0, nil
 	}
 
 	const query = `select count(*) from users where telegram_id = any($1::bigint[])`
 
 	var count int
-	if err := p.pool.QueryRow(ctx, query, hidden).Scan(&count); err != nil {
+	if err := p.pool.QueryRow(ctx, query, ids).Scan(&count); err != nil {
 		return 0, fmt.Errorf("counting hidden people: %w", err)
 	}
 	return count, nil
@@ -297,7 +337,7 @@ func (p *Postgres) Timeline(ctx context.Context, f admin.Filter, limit int) ([]a
 		from events e
 		join people p on p.telegram_id = e.telegram_id
 		order by e.occurred_at, e.id
-		limit $5`
+		limit $6`
 
 	rows, err := p.pool.Query(ctx, query, append(args(f), limit)...)
 	if err != nil {

@@ -20,6 +20,9 @@ type apiRecorder struct {
 	path string
 	body map[string]any
 	ok   bool
+	// result — сырое тело ответа. Пустое отдаёт `{}`: методам отправки
+	// сообщений результат не нужен, а вот вопросам про канал — нужен.
+	result string
 }
 
 func newAPI(t *testing.T, rec *apiRecorder) *httptest.Server {
@@ -41,7 +44,11 @@ func newAPI(t *testing.T, rec *apiRecorder) *httptest.Server {
 			_, _ = io.WriteString(w, `{"ok":false,"error_code":400,"description":"chat not found"}`)
 			return
 		}
-		_, _ = io.WriteString(w, `{"ok":true,"result":{}}`)
+		result := rec.result
+		if result == "" {
+			result = `{}`
+		}
+		_, _ = io.WriteString(w, `{"ok":true,"result":`+result+`}`)
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -161,9 +168,75 @@ func TestSetWebhookCarriesSecret(t *testing.T) {
 	if got := rec.body["url"]; got != "https://bot.test/telegram/webhook" {
 		t.Errorf("url = %v", got)
 	}
+	// Список типов передаётся целиком и обязан содержать chat_member:
+	// Telegram заменяет прежний набор, а без явного упоминания подписки на
+	// канал не приходят вовсе — этот тип по умолчанию выключен.
 	updates, ok := rec.body["allowed_updates"].([]any)
-	if !ok || len(updates) != 2 {
-		t.Fatalf("want message and callback_query only, got %v", rec.body["allowed_updates"])
+	if !ok {
+		t.Fatalf("allowed_updates = %v", rec.body["allowed_updates"])
+	}
+	want := map[string]bool{"message": false, "callback_query": false, "chat_member": false, "my_chat_member": false}
+	for _, u := range updates {
+		name, _ := u.(string)
+		if _, expected := want[name]; !expected {
+			t.Errorf("лишний тип update: %q", name)
+			continue
+		}
+		want[name] = true
+	}
+	for name, found := range want {
+		if !found {
+			t.Errorf("бот не просит %q", name)
+		}
+	}
+
+	// Очередь за время простоя — это люди, которые нажали кнопку, пока бот
+	// лежал. Сброс её на каждом старте стоил бы лида на каждый деплой.
+	if drop, ok := rec.body["drop_pending_updates"].(bool); ok && drop {
+		t.Error("накопившиеся update сбрасываются при регистрации webhook")
+	}
+}
+
+func TestChatMemberCountReadsTheResult(t *testing.T) {
+	rec := &apiRecorder{ok: true, result: `658`}
+	client := newClient(t, newAPI(t, rec).URL)
+
+	count, err := client.ChatMemberCount(context.Background(), "@alexeymuzykablog")
+	if err != nil {
+		t.Fatalf("ChatMemberCount: %v", err)
+	}
+	if count != 658 {
+		t.Errorf("подписчиков = %d, хочу 658", count)
+	}
+	if got := rec.body["chat_id"]; got != "@alexeymuzykablog" {
+		t.Errorf("chat_id = %v", got)
+	}
+}
+
+func TestChatMemberReadsStatusAndUser(t *testing.T) {
+	rec := &apiRecorder{ok: true, result: `{"status":"member","user":{"id":763464443,"username":"akhmadullintf","first_name":"Тимур"}}`}
+	client := newClient(t, newAPI(t, rec).URL)
+
+	member, status, err := client.ChatMember(context.Background(), "@alexeymuzykablog", 763464443)
+	if err != nil {
+		t.Fatalf("ChatMember: %v", err)
+	}
+	if status != "member" {
+		t.Errorf("статус = %q", status)
+	}
+	if member.TelegramID != 763464443 || member.Username != "akhmadullintf" || member.FirstName != "Тимур" {
+		t.Errorf("человек собран не полностью: %+v", member)
+	}
+}
+
+// Ответ без result — это не пустой ответ, а сломанный. Молча вернуть ноль
+// подписчиков значит нарисовать обвал канала на ровном месте.
+func TestChatMemberCountFailsWithoutAResult(t *testing.T) {
+	rec := &apiRecorder{ok: true}
+	client := newClient(t, newAPI(t, rec).URL)
+
+	if _, err := client.ChatMemberCount(context.Background(), "@channel"); err == nil {
+		t.Error("want error for a response without result")
 	}
 }
 

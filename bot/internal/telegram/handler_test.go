@@ -10,7 +10,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/channel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/telegram"
 )
@@ -22,8 +24,17 @@ type fakeScenario struct {
 	alternatives []funnel.AlternativeCommand
 	stages       []funnel.StageCommand
 	waitlists    []funnel.JoinWaitlistCommand
+	blocks       []funnel.BlockCommand
 	reply        funnel.Reply
 	err          error
+}
+
+func (f *fakeScenario) SetBlocked(_ context.Context, cmd funnel.BlockCommand) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.blocks = append(f.blocks, cmd)
+	return nil
 }
 
 func (f *fakeScenario) AnswerStage(_ context.Context, cmd funnel.StageCommand) (funnel.Reply, error) {
@@ -47,7 +58,7 @@ func (f *fakeScenario) Alternative(_ context.Context, cmd funnel.AlternativeComm
 }
 
 func (f *fakeScenario) calls() int {
-	return len(f.starts) + len(f.alternatives) + len(f.stages) + len(f.waitlists)
+	return len(f.starts) + len(f.alternatives) + len(f.stages) + len(f.waitlists) + len(f.blocks)
 }
 
 type sentMessage struct {
@@ -86,17 +97,202 @@ func (f *fakeSender) AnswerCallback(_ context.Context, callbackID string) error 
 	return nil
 }
 
-func newHandler(t *testing.T, scenario telegram.Scenario, sender telegram.Sender) http.Handler {
+// fakeMembers — приёмник событий канала.
+type fakeMembers struct {
+	applied []channel.MemberUpdate
+	access  []string
+	err     error
+}
+
+func (f *fakeMembers) Apply(_ context.Context, u channel.MemberUpdate) error {
+	if f.err != nil {
+		return f.err
+	}
+	f.applied = append(f.applied, u)
+	return nil
+}
+
+func (f *fakeMembers) BotAccessChanged(_ channel.Chat, status string) {
+	f.access = append(f.access, status)
+}
+
+func newHandler(t *testing.T, scenario telegram.Scenario, sender telegram.Sender, opts ...telegram.HandlerOption) http.Handler {
 	t.Helper()
 
 	// Логи обработчика в выводе тестов только мешают.
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	h, err := telegram.NewHandler(scenario, sender, testSecret, quiet)
+	h, err := telegram.NewHandler(scenario, sender, testSecret, quiet, opts...)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
 	return h
+}
+
+// Подписка на канал приходит отдельным типом update и не должна ни
+// задевать сценарий, ни отправлять человеку сообщение: он подписался, а
+// не написал боту.
+func TestChannelJoinReachesMembers(t *testing.T) {
+	scenario, sender, members := &fakeScenario{}, &fakeSender{}, &fakeMembers{}
+	h := newHandler(t, scenario, sender, telegram.WithMembers(members))
+
+	body := `{"update_id":20,"chat_member":{
+		"chat":{"id":-1001234567890,"username":"alexeymuzykablog"},
+		"date":1787000000,
+		"old_chat_member":{"status":"left","user":{"id":55}},
+		"new_chat_member":{"status":"member","user":{"id":55,"username":"akhmadullintf","first_name":"Тимур"}},
+		"invite_link":{"invite_link":"https://t.me/+abc","name":"reel_razbor"}}}`
+	rec := post(t, h, testSecret, body)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200", rec.Code)
+	}
+	if len(members.applied) != 1 {
+		t.Fatalf("подписка не доехала: %+v", members.applied)
+	}
+	got := members.applied[0]
+	if got.UpdateID != 20 || got.Member.TelegramID != 55 || got.NewStatus != "member" {
+		t.Errorf("событие собрано неверно: %+v", got)
+	}
+	if got.Member.Username != "akhmadullintf" || got.Member.FirstName != "Тимур" {
+		t.Errorf("человек собран не полностью: %+v", got.Member)
+	}
+	if got.Chat.Username != "alexeymuzykablog" || got.Chat.ID != -1001234567890 {
+		t.Errorf("канал собран неверно: %+v", got.Chat)
+	}
+	// Имя ссылки полезнее адреса: в отчёте нужна метка, а не t.me/+abc.
+	if got.InviteLink != "reel_razbor" {
+		t.Errorf("ссылка = %q, хочу имя ссылки", got.InviteLink)
+	}
+	if !got.At.Equal(time.Unix(1787000000, 0).UTC()) {
+		t.Errorf("время = %v, хочу время из update", got.At)
+	}
+	if scenario.calls() != 0 || len(sender.sent) != 0 {
+		t.Error("подписка на канал не должна ни трогать сценарий, ни писать человеку")
+	}
+}
+
+// Человек в chat_member берётся из new_chat_member, а не из from: подписку
+// может снять админ канала, и тогда from — это он.
+func TestKickedPersonIsTheOneInNewChatMember(t *testing.T) {
+	members := &fakeMembers{}
+	h := newHandler(t, &fakeScenario{}, &fakeSender{}, telegram.WithMembers(members))
+
+	body := `{"update_id":21,"chat_member":{
+		"chat":{"id":-1001234567890},
+		"from":{"id":1,"username":"lesha"},
+		"old_chat_member":{"status":"member","user":{"id":77}},
+		"new_chat_member":{"status":"kicked","user":{"id":77}}}}`
+	post(t, h, testSecret, body)
+
+	if len(members.applied) != 1 {
+		t.Fatalf("событие потеряно")
+	}
+	if got := members.applied[0].Member.TelegramID; got != 77 {
+		t.Errorf("человек = %d, хочу того, кого исключили", got)
+	}
+}
+
+// Недоступная база на подписке — это 5xx: Telegram повторит доставку, а
+// повтор отсекается по update_id. Молчаливый 200 потерял бы подписчика.
+func TestChannelFailureAsksTelegramToRetry(t *testing.T) {
+	members := &fakeMembers{err: errors.New("database is down")}
+	h := newHandler(t, &fakeScenario{}, &fakeSender{}, telegram.WithMembers(members))
+
+	body := `{"update_id":22,"chat_member":{"chat":{"id":-100},"new_chat_member":{"status":"member","user":{"id":55}}}}`
+	if rec := post(t, h, testSecret, body); rec.Code != http.StatusInternalServerError {
+		t.Errorf("code = %d, want 500", rec.Code)
+	}
+}
+
+// Блокировка приходит тем же типом update, что и снятие бота с админов
+// канала. Развилка по типу чата — единственное, что их различает, и без
+// неё блокировки молча уезжали в фильтр канала.
+func TestBlockInPrivateChatIsRecorded(t *testing.T) {
+	scenario, members := &fakeScenario{}, &fakeMembers{}
+	h := newHandler(t, scenario, &fakeSender{}, telegram.WithMembers(members))
+
+	body := `{"update_id":30,"my_chat_member":{
+		"chat":{"id":55,"type":"private"},
+		"from":{"id":55,"username":"akhmadullintf"},
+		"old_chat_member":{"status":"member","user":{"id":9}},
+		"new_chat_member":{"status":"kicked","user":{"id":9}}}}`
+	if rec := post(t, h, testSecret, body); rec.Code != http.StatusOK {
+		t.Fatalf("code = %d", rec.Code)
+	}
+
+	if len(scenario.blocks) != 1 {
+		t.Fatalf("блокировка потеряна: %+v", scenario.blocks)
+	}
+	got := scenario.blocks[0]
+	if !got.Blocked || got.User.TelegramID != 55 {
+		t.Errorf("блокировка собрана неверно: %+v", got)
+	}
+	if len(members.access) != 0 {
+		t.Error("личный чат уехал в замер канала")
+	}
+}
+
+func TestUnblockIsRecorded(t *testing.T) {
+	scenario := &fakeScenario{}
+	h := newHandler(t, scenario, &fakeSender{})
+
+	body := `{"update_id":31,"my_chat_member":{
+		"chat":{"id":55,"type":"private"},
+		"from":{"id":55},
+		"old_chat_member":{"status":"kicked","user":{"id":9}},
+		"new_chat_member":{"status":"member","user":{"id":9}}}}`
+	post(t, h, testSecret, body)
+
+	if len(scenario.blocks) != 1 || scenario.blocks[0].Blocked {
+		t.Errorf("возврат собран неверно: %+v", scenario.blocks)
+	}
+}
+
+// Потерянная блокировка ничем не видна, поэтому сбой базы здесь тоже
+// должен превращаться в повторную доставку.
+func TestBlockFailureAsksTelegramToRetry(t *testing.T) {
+	scenario := &fakeScenario{err: errors.New("database is down")}
+	h := newHandler(t, scenario, &fakeSender{})
+
+	body := `{"update_id":32,"my_chat_member":{"chat":{"id":55,"type":"private"},
+		"from":{"id":55},"new_chat_member":{"status":"kicked","user":{"id":9}}}}`
+	if rec := post(t, h, testSecret, body); rec.Code != http.StatusInternalServerError {
+		t.Errorf("code = %d, want 500", rec.Code)
+	}
+}
+
+func TestBotStatusChangeIsReported(t *testing.T) {
+	members := &fakeMembers{}
+	scenario := &fakeScenario{}
+	h := newHandler(t, scenario, &fakeSender{}, telegram.WithMembers(members))
+
+	body := `{"update_id":23,"my_chat_member":{"chat":{"id":-1001234567890,"type":"channel"},
+		"old_chat_member":{"status":"administrator","user":{"id":9}},
+		"new_chat_member":{"status":"left","user":{"id":9}}}}`
+	post(t, h, testSecret, body)
+
+	if len(scenario.blocks) != 0 {
+		t.Error("канал уехал в блокировки")
+	}
+
+	if len(members.access) != 1 || members.access[0] != "left" {
+		t.Errorf("статус бота не доехал: %v", members.access)
+	}
+	// Сам бот подписчиком не считается ни при каких обстоятельствах.
+	if len(members.applied) != 0 {
+		t.Errorf("бот записан в подписчики: %+v", members.applied)
+	}
+}
+
+// Без настроенного канала chat_member — просто ненужный тип update.
+func TestChannelUpdateWithoutAWatcherIsIgnored(t *testing.T) {
+	h := newHandler(t, &fakeScenario{}, &fakeSender{})
+
+	body := `{"update_id":24,"chat_member":{"chat":{"id":-100},"new_chat_member":{"status":"member","user":{"id":55}}}}`
+	if rec := post(t, h, testSecret, body); rec.Code != http.StatusOK {
+		t.Errorf("code = %d, want 200", rec.Code)
+	}
 }
 
 func post(t *testing.T, h http.Handler, secret, body string) *httptest.ResponseRecorder {

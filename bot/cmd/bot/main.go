@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/admin"
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/channel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/store"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/telegram"
@@ -45,12 +46,15 @@ type config struct {
 	siteBase string
 	// publicBase — где живёт сам бот: на него Telegram шлёт webhook, с
 	// него же уходит tracked redirect.
-	publicBase    string
-	channelURL    string
+	publicBase string
+	channelURL string
+	// channelID — канал для замера. Обычно выводится из channelURL:
+	// отдельная переменная нужна приватному каналу, у которого нет
+	// публичного имени, только числовой id.
+	channelID     string
 	botToken      string
 	webhookSecret string
 	databaseURL   string
-	setWebhook    bool
 	// hiddenIDs — кого не показывать на странице воронки. Свой тестовый
 	// аккаунт в отчёте о чужом поведении даёт ложную картину: на выборке
 	// из нескольких человек он один сдвигает все проценты.
@@ -62,8 +66,8 @@ func loadConfig() (config, error) {
 		addr:       envOr("ADDR", ":8080"),
 		siteBase:   envOr("SITE_BASE_URL", "https://alexeymuzyka.com"),
 		channelURL: envOr("TELEGRAM_CHANNEL_URL", "https://t.me/alexeymuzykablog"),
-		setWebhook: envOr("TELEGRAM_SET_WEBHOOK", "") == "true",
 	}
+	cfg.channelID = envOr("TELEGRAM_CHANNEL_ID", cfg.channelURL)
 
 	var missing []string
 	for _, required := range []struct {
@@ -157,17 +161,36 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("building telegram client: %w", err)
 	}
 
-	webhook, err := telegram.NewHandler(scenario, client, cfg.webhookSecret, log)
+	// Замер канала. Не заводится — бот работает как раньше: канал это
+	// отчёт, а процесс это webhook.
+	watcher, err := channel.New(db, client, cfg.channelID, log)
+	if err != nil {
+		log.Warn("channel is not watched", "channel", cfg.channelID, "error", err)
+	}
+
+	options := []telegram.HandlerOption{}
+	if watcher != nil {
+		options = append(options, telegram.WithMembers(watcher))
+	}
+	webhook, err := telegram.NewHandler(scenario, client, cfg.webhookSecret, log, options...)
 	if err != nil {
 		return fmt.Errorf("building webhook handler: %w", err)
 	}
 
-	if cfg.setWebhook {
-		url := cfg.publicBase + webhookPath
-		if err := client.SetWebhook(startupCtx, url, cfg.webhookSecret); err != nil {
-			return fmt.Errorf("registering webhook: %w", err)
-		}
-		log.Info("webhook registered", "url", url)
+	// Webhook регистрируется на каждом старте, без флага. Набор типов
+	// update меняется вместе с кодом, и «не забыть один раз включить
+	// переменную» — это способ выкатить замер канала и не получить с него
+	// ни одного события.
+	//
+	// Сбой регистрации не роняет процесс: адрес мог быть зарегистрирован
+	// прошлым запуском, и тогда бот работает. Но в логе это ошибка, а не
+	// заметка — молча остаться без части событий хуже, чем упасть.
+	webhookURL := cfg.publicBase + webhookPath
+	if err := client.SetWebhook(startupCtx, webhookURL, cfg.webhookSecret); err != nil {
+		log.Error("webhook registration failed, working with whatever telegram remembers",
+			"url", webhookURL, "error", err)
+	} else {
+		log.Info("webhook registered", "url", webhookURL, "updates", telegram.AllowedUpdates)
 	}
 
 	// Админка на чтение. Пароль спрашивает Caddy перед тем, как пустить
@@ -201,6 +224,7 @@ func run(log *slog.Logger) error {
 	mux.HandleFunc("GET /admin/api/person", adminPage.ServePerson)
 	mux.HandleFunc("GET /admin/api/sources", adminPage.ServeSources)
 	mux.HandleFunc("GET /admin/api/scenario", adminPage.ServeScenario)
+	mux.HandleFunc("GET /admin/api/channel", adminPage.ServeChannel)
 	mux.HandleFunc("GET /admin/export.xlsx", adminPage.ServeExport)
 	mux.Handle("GET /admin", http.RedirectHandler("/admin/", http.StatusMovedPermanently))
 	mux.Handle("GET /admin/", adminUI)
@@ -220,6 +244,13 @@ func run(log *slog.Logger) error {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+	}
+
+	// Замер канала живёт рядом с сервером и умирает вместе с ним: снимки
+	// размера и сверка подписок это фон, который не должен ни задерживать
+	// старт, ни мешать webhook.
+	if watcher != nil {
+		go watcher.Run(ctx)
 	}
 
 	errs := make(chan error, 1)

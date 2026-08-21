@@ -28,6 +28,14 @@ type stub struct {
 	timeline []admin.TimelineRow
 	daily    []admin.Day
 	hidden   int
+
+	summary    admin.ChannelSummary
+	conversion admin.ChannelConversion
+	channelDay []admin.ChannelDay
+	channelSrc []admin.ChannelSource
+	cohorts    map[admin.ChannelCohort][]admin.ChannelPerson
+	member     admin.ChannelPerson
+	memberOK   bool
 }
 
 func (s *stub) Stages(_ context.Context, f admin.Filter) (map[string]admin.Stage, error) {
@@ -71,6 +79,37 @@ func (s *stub) Daily(_ context.Context, f admin.Filter) ([]admin.Day, error) {
 func (s *stub) HiddenPeople(_ context.Context, f admin.Filter) (int, error) {
 	s.got = f
 	return s.hidden, nil
+}
+
+func (s *stub) ChannelSummary(_ context.Context, f admin.Filter) (admin.ChannelSummary, error) {
+	s.got = f
+	return s.summary, nil
+}
+
+func (s *stub) ChannelConversion(_ context.Context, f admin.Filter) (admin.ChannelConversion, error) {
+	s.got = f
+	return s.conversion, nil
+}
+
+func (s *stub) ChannelDaily(_ context.Context, f admin.Filter) ([]admin.ChannelDay, error) {
+	s.got = f
+	return s.channelDay, nil
+}
+
+func (s *stub) ChannelSources(_ context.Context, f admin.Filter) ([]admin.ChannelSource, error) {
+	s.got = f
+	return s.channelSrc, nil
+}
+
+func (s *stub) ChannelPeople(
+	_ context.Context, f admin.Filter, c admin.ChannelCohort, _ int,
+) ([]admin.ChannelPerson, error) {
+	s.got = f
+	return s.cohorts[c], nil
+}
+
+func (s *stub) ChannelMember(_ context.Context, _ int64) (admin.ChannelPerson, bool, error) {
+	return s.member, s.memberOK, nil
 }
 
 func handler(t *testing.T, r *stub, opts ...admin.Option) *admin.Handler {

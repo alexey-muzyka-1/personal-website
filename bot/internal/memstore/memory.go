@@ -150,6 +150,11 @@ func (s *memoryStore) SaveUser(_ context.Context, u funnel.User, at time.Time) e
 	return nil
 }
 
+func (s *memoryStore) HasUser(_ context.Context, telegramID int64) (bool, error) {
+	_, ok := s.data.users[telegramID]
+	return ok, nil
+}
+
 func (s *memoryStore) SetUserStage(_ context.Context, telegramID int64, stage funnel.Stage) error {
 	stored := s.data.users[telegramID]
 	stored.stage = stage

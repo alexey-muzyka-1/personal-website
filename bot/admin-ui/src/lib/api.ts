@@ -15,28 +15,40 @@ export const PERIODS = [
   { days: 0, label: 'всё время' },
 ];
 
+/** CHANNEL — отношение к каналу как фильтр. Значения те же слова, что
+ *  понимает сервер: список закрыт с обеих сторон. */
+export const CHANNEL = [
+  { value: 'member', label: 'подписан' },
+  { value: 'left', label: 'отписался' },
+  { value: NO_VALUE, label: 'не подписан' },
+];
+
 export interface Slice {
   source: string;
   stage: string;
+  channel: string;
   days: number;
 }
 
 export function readSlice(): Slice {
   const q = new URLSearchParams(location.search);
   const days = Number(q.get('days') ?? 0);
+  const channel = q.get('channel') ?? '';
   return {
     source: q.get('source') ?? '',
     stage: q.get('stage') ?? '',
+    channel: CHANNEL.some((c) => c.value === channel) ? channel : '',
     // Период берётся только из известного списка: адрес с мусором не
     // должен молча показать срез, которого никто не выбирал.
     days: PERIODS.some((p) => p.days === days && p.days !== 0) ? days : 0,
   };
 }
 
-function params(slice: Slice): URLSearchParams {
+export function params(slice: Slice): URLSearchParams {
   const q = new URLSearchParams();
   if (slice.source) q.set('source', slice.source);
   if (slice.stage) q.set('stage', slice.stage);
+  if (slice.channel) q.set('channel', slice.channel);
   if (slice.days) q.set('days', String(slice.days));
   return q;
 }

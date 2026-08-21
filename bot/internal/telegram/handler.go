@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/channel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 )
 
@@ -22,6 +23,17 @@ type Scenario interface {
 	Alternative(ctx context.Context, cmd funnel.AlternativeCommand) (funnel.Reply, error)
 	AnswerStage(ctx context.Context, cmd funnel.StageCommand) (funnel.Reply, error)
 	JoinWaitlist(ctx context.Context, cmd funnel.JoinWaitlistCommand) (funnel.Reply, error)
+	// SetBlocked ничего не отвечает: заблокировавшему нельзя написать, а
+	// разблокировавшему нечего сказать, пока он сам не напишет.
+	SetBlocked(ctx context.Context, cmd funnel.BlockCommand) error
+}
+
+// Members — приём того, что происходит в канале. Интерфейс на стороне
+// потребителя: боевая реализация — *channel.Watcher.
+type Members interface {
+	Apply(ctx context.Context, u channel.MemberUpdate) error
+	// BotAccessChanged — сменился статус самого бота в канале.
+	BotAccessChanged(chat channel.Chat, status string)
 }
 
 // Sender — исходящая часть Bot API.
@@ -36,14 +48,24 @@ type Sender interface {
 type Handler struct {
 	scenario Scenario
 	sender   Sender
+	members  Members
 	secret   string
 	log      *slog.Logger
+}
+
+// HandlerOption — подключаемая часть обработчика.
+type HandlerOption func(*Handler)
+
+// WithMembers включает приём событий канала. Не задан — chat_member
+// просто игнорируется, как любой ненужный тип update.
+func WithMembers(m Members) HandlerOption {
+	return func(h *Handler) { h.members = m }
 }
 
 // NewHandler. secret — значение, которое Telegram кладёт в заголовок
 // X-Telegram-Bot-Api-Secret-Token при setWebhook. Пустой секрет запрещён:
 // открытый webhook позволяет кому угодно писать события в базу лидов.
-func NewHandler(scenario Scenario, sender Sender, secret string, log *slog.Logger) (*Handler, error) {
+func NewHandler(scenario Scenario, sender Sender, secret string, log *slog.Logger, opts ...HandlerOption) (*Handler, error) {
 	if scenario == nil || sender == nil {
 		return nil, errors.New("scenario and sender are required")
 	}
@@ -53,7 +75,12 @@ func NewHandler(scenario Scenario, sender Sender, secret string, log *slog.Logge
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Handler{scenario: scenario, sender: sender, secret: secret, log: log}, nil
+
+	h := &Handler{scenario: scenario, sender: sender, secret: secret, log: log}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -89,11 +116,70 @@ func (h *Handler) handle(ctx context.Context, update Update) error {
 		return h.handleCallback(ctx, update.UpdateID, *update.CallbackQuery)
 	case update.Message != nil:
 		return h.handleMessage(ctx, update.UpdateID, *update.Message)
+	case update.ChatMember != nil:
+		return h.handleChatMember(ctx, update.UpdateID, *update.ChatMember)
+	case update.MyChatMember != nil:
+		return h.handleMyChatMember(ctx, update.UpdateID, *update.MyChatMember)
 	default:
-		// Прочие типы update (edited_message, my_chat_member и так далее)
+		// Прочие типы update (edited_message, channel_post и так далее)
 		// воронке пока не нужны.
 		return nil
 	}
+}
+
+// handleChatMember — человек вошёл в канал или вышел из него.
+//
+// Ошибка возвращается наверх и превращается в 5xx: подписка это шаг
+// воронки не хуже нажатой кнопки, и терять её из-за недоступной базы
+// нельзя. Telegram повторит доставку, а повтор отсекается по update_id.
+func (h *Handler) handleChatMember(ctx context.Context, updateID int64, m ChatMemberUpdated) error {
+	if h.members == nil {
+		return nil
+	}
+	if err := h.members.Apply(ctx, m.toChannel(updateID)); err != nil {
+		return fmt.Errorf("chat member: %w", err)
+	}
+	return nil
+}
+
+// handleMyChatMember — сменился статус самого бота. Смысл зависит от
+// того, где это случилось, и развилка здесь не косметическая: в личке это
+// человек, который заблокировал бота, а в канале — бот, которого сняли с
+// админов. Без развилки первое молча уезжало в фильтр канала и терялось.
+func (h *Handler) handleMyChatMember(ctx context.Context, updateID int64, m ChatMemberUpdated) error {
+	if m.Chat.private() {
+		return h.handleBlock(ctx, updateID, m)
+	}
+	if h.members != nil {
+		h.members.BotAccessChanged(m.Chat.toChannel(), m.NewChatMember.Status)
+	}
+	return nil
+}
+
+// handleBlock — человек заблокировал бота или вернулся.
+//
+// Ошибка возвращается наверх: потерянная блокировка не видна никак, а
+// стоит она непосланного сообщения тому, кто ждал ответа.
+func (h *Handler) handleBlock(ctx context.Context, updateID int64, m ChatMemberUpdated) error {
+	if m.From == nil {
+		return nil
+	}
+	// В личке бот может быть только участником или изгнанным. Всё
+	// остальное — не про блокировку, и гадать не надо.
+	blocked := m.NewChatMember.Status == "kicked"
+	if !blocked && m.NewChatMember.Status != "member" {
+		return nil
+	}
+
+	cmd := funnel.BlockCommand{
+		UpdateID: updateID,
+		User:     m.From.toFunnel(),
+		Blocked:  blocked,
+	}
+	if err := h.scenario.SetBlocked(ctx, cmd); err != nil {
+		return fmt.Errorf("block: %w", err)
+	}
+	return nil
 }
 
 func (h *Handler) handleMessage(ctx context.Context, updateID int64, msg Message) error {

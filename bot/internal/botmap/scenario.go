@@ -138,6 +138,26 @@ func Scenario(ctx context.Context) ([]Screen, error) {
 			Note:    br.note,
 		})
 
+		// Отказ от оффера. Ветка одна на оба предложения и показывается на
+		// карте один раз: человеку в обоих случаях говорится одно и то же.
+		if br.stage == funnel.StageNoSignal {
+			declined, events, err := sess.answerStage(ctx, funnel.StageOther)
+			if err != nil {
+				return nil, fmt.Errorf("отказ от оффера: %w", err)
+			}
+			afterBranches = append(afterBranches, Screen{
+				Step: 5,
+				// Ветки нет: обоим отказавшимся бот говорит одно и то же,
+				// и показывать это дважды значит соврать про размер бота.
+				Title:   "Нажал «" + answer.Buttons[1].Label + "»",
+				Trigger: "stage:other после показанного оффера",
+				Text:    declined.Text,
+				Buttons: buttons(declined, 0),
+				Events:  names(events),
+				Note:    "Уточняющий вопрос здесь был бы кругом: он ведёт обратно к тому же офферу. Вместо него — единственное, что можно дать бесплатно.",
+			})
+		}
+
 		if br.stage != funnel.StageNotShipping {
 			continue
 		}

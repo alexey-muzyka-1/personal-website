@@ -22,6 +22,17 @@ const (
 	EventAlternativeAsked = "alternative_asked"
 	EventStageAnswered    = "stage_answered"
 	EventOfferShown       = "offer_shown"
+	// EventChannelOffered — человеку показали канал. Не переход и не
+	// подписка: Telegram о нажатии URL-кнопки не сообщает. Само по себе
+	// это половина пары «показали — подписался», а вторую половину
+	// приносит уже канал, событием о вступлении.
+	EventChannelOffered = "channel_offered"
+	// Блокировка бота. Приходит из my_chat_member в личном чате и
+	// значит ровно то, что человеку больше нельзя написать: ни про эфир,
+	// ни про что ещё. Без этого рассылка «всем записавшимся» молча
+	// уходит в половину адресов.
+	EventBotBlocked   = "bot_blocked"
+	EventBotUnblocked = "bot_unblocked"
 )
 
 // Stage — состояние контент-системы человека, а не то, кто он вообще.

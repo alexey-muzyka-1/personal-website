@@ -45,7 +45,9 @@ services:
       SITE_BASE_URL: ${SITE_BASE_URL:-https://alexeymuzyka.com}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?нужен токен из BotFather}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:?нужен секрет webhook}
-      TELEGRAM_SET_WEBHOOK: ${TELEGRAM_SET_WEBHOOK:-false}
+      # Канал, который бот считает. Бот должен быть в нём админом, иначе
+      # Telegram не отвечает про канал ничего.
+      TELEGRAM_CHANNEL_URL: ${TELEGRAM_CHANNEL_URL:-https://t.me/alexeymuzykablog}
       ADMIN_HIDDEN_TELEGRAM_IDS: ${ADMIN_HIDDEN_TELEGRAM_IDS:-}
     depends_on:
       postgres:

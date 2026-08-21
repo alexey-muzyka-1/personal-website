@@ -34,6 +34,9 @@ func (h *Handler) exportName(f Filter, days int) string {
 	if f.Stage != "" {
 		parts = append(parts, "состояние-"+filterFileLabel(f.Stage))
 	}
+	if f.Channel != "" {
+		parts = append(parts, "канал-"+filterFileLabel(f.Channel))
+	}
 	if days != 0 {
 		parts = append(parts, strconv.Itoa(days)+"дней")
 	}
@@ -71,7 +74,7 @@ func (h *Handler) ServeExport(w http.ResponseWriter, r *http.Request) {
 		Name: "Люди",
 		Head: []string{
 			"Telegram ID", "Кто", "Имя", "Ссылка",
-			"Пришёл", "Откуда", "Состояние", "Забрал", "Открыл", "На эфире",
+			"Пришёл", "Откуда", "Состояние", "Забрал", "Открыл", "На эфире", "В канале", "Заблокировал",
 		},
 	}
 	for _, l := range leads {
@@ -86,6 +89,8 @@ func (h *Handler) ServeExport(w http.ResponseWriter, r *http.Request) {
 			l.Materials,
 			yesNo(l.Opened),
 			yesNo(l.Waitlist),
+			channelState(l),
+			yesNo(l.Blocked),
 		})
 	}
 
@@ -105,6 +110,36 @@ func (h *Handler) ServeExport(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Лист канала отвечает на третий вопрос — «кто из этих людей рядом со
+	// мной сейчас». Срез на него не действует: у половины подписчиков нет
+	// даты подписки, и период вычеркнул бы именно их, оставив ощущение,
+	// что канала почти нет.
+	members, err := h.reader.ChannelPeople(ctx, filter, CohortEveryone, exportLimit)
+	if err != nil {
+		h.fail(w, "export channel", err)
+		return
+	}
+	subscribers := xlsx.Sheet{
+		Name: "Канал",
+		Head: []string{
+			"Telegram ID", "Кто", "Ссылка", "Статус",
+			"Подписался", "Отписался", "Дней в канале", "Из бота", "Метка",
+		},
+	}
+	for _, m := range members {
+		subscribers.Rows = append(subscribers.Rows, []string{
+			strconv.FormatInt(m.TelegramID, 10),
+			channelHandle(m),
+			ChatLink(m.TelegramID, m.Username),
+			yesNo(m.Subscribed),
+			stampOrDash(m.JoinedAt),
+			stampOrDash(m.LeftAt),
+			daysLived(m, h.now()),
+			yesNo(m.Lead),
+			sourceLabel(m.SourceID),
+		})
+	}
+
 	if len(leads) == exportLimit || len(timeline) == exportLimit {
 		h.log.Warn("admin export truncated", "leads", len(leads), "timeline", len(timeline))
 		people.Rows = append(people.Rows, []string{"", "ВЫГРУЗКА ОБРЕЗАНА: строк больше, чем " + strconv.Itoa(exportLimit)})
@@ -116,7 +151,7 @@ func (h *Handler) ServeExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Disposition", contentDisposition(h.exportName(filter, days)))
 
-	if err := xlsx.Write(w, people, steps); err != nil {
+	if err := xlsx.Write(w, people, steps, subscribers); err != nil {
 		// Тело уже частично ушло, менять статус поздно: единственное
 		// честное действие — записать в лог, а не дорисовывать книгу.
 		h.log.Error("admin export failed", "error", err)
@@ -150,6 +185,20 @@ func sourceLabel(v string) string {
 	return v
 }
 
+// channelState — три состояния вместо «да/нет»: ушедший подписчик и
+// человек, который никогда не подписывался, в одной колонке со словом
+// «нет» выглядели бы одинаково, а разговаривать с ними надо по-разному.
+func channelState(l Lead) string {
+	switch {
+	case l.Subscribed:
+		return "да"
+	case l.Churned:
+		return "отписался"
+	default:
+		return "нет"
+	}
+}
+
 func yesNo(v bool) string {
 	if v {
 		return "да"
@@ -162,6 +211,23 @@ func yesNo(v bool) string {
 // он путает дни разных месяцев и не сортируется вовсе.
 func stamp(t time.Time) string {
 	return t.In(moscow).Format("2006-01-02 15:04:05")
+}
+
+// stampOrDash — прочерк там, где даты нет. Пустая ячейка в Excel читается
+// как «забыли заполнить», а здесь это факт: Telegram не отдаёт дату
+// подписки тех, кто подписался до начала замера.
+func stampOrDash(t *time.Time) string {
+	if t == nil {
+		return "—"
+	}
+	return stamp(*t)
+}
+
+func daysLived(p ChannelPerson, now time.Time) string {
+	if p.JoinedAt == nil {
+		return "—"
+	}
+	return strconv.Itoa(lived(p, now))
 }
 
 // meta схлопывает метаданные события в одну ячейку с устойчивым

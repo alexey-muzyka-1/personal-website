@@ -5,14 +5,17 @@ import '../styles/admin.css';
 
 interface Props {
   title: string;
-  page: 'funnel' | 'sources' | 'scenario' | 'people';
+  page: 'funnel' | 'sources' | 'channel' | 'scenario' | 'people';
 }
 const { title, page } = Astro.props;
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+// Канал стоит после источников и до сообщений: сначала откуда пришли,
+// потом где остались, и только потом что именно им говорил бот.
 const tabs = [
   { id: 'funnel', href: base, label: 'Обзор' },
   { id: 'sources', href: base + 'sources/', label: 'Источники' },
+  { id: 'channel', href: base + 'channel/', label: 'Канал' },
   { id: 'scenario', href: base + 'scenario/', label: 'Сообщения' },
   { id: 'people', href: base + 'people/', label: 'Люди' },
 ];
