@@ -73,6 +73,20 @@ func (f *Funnel) AnswerStage(ctx context.Context, cmd StageCommand) (Reply, erro
 			return Reply{}, fmt.Errorf("appending %s: %w", EventStageAnswered, err)
 		}
 
+		// Отказ от уже показанного оффера — не повод спрашивать заново.
+		// Уточняющий вопрос хорош ровно один раз, на входе; после «мне
+		// это не подходит» он возвращает человека к тому же самому
+		// предложению, и получается не escape, а круг.
+		if cmd.Stage == StageOther {
+			shown, err := s.HasEvent(ctx, cmd.User.TelegramID, EventOfferShown)
+			if err != nil {
+				return Reply{}, fmt.Errorf("checking offers: %w", err)
+			}
+			if shown {
+				return f.offerChannel(ctx, s, cmd.User, sourceID, at)
+			}
+		}
+
 		reply, offer := f.stepFor(cmd.Stage)
 		if offer == "" {
 			return reply, nil
@@ -91,6 +105,45 @@ func (f *Funnel) AnswerStage(ctx context.Context, cmd StageCommand) (Reply, erro
 		return reply, nil
 	})
 }
+
+// offerChannel — единственный бесплатный следующий шаг, и он показывается
+// вместо отклонённого оффера, а не рядом с ним.
+//
+// Правило «один оффер за раз» этим не нарушается: канал не продаётся и не
+// конкурирует за то же решение. Нарушалось бы обратное — человек, который
+// только что сказал «не надо», не должен уходить в пустоту, когда есть
+// что дать бесплатно.
+func (f *Funnel) offerChannel(ctx context.Context, s Store, user User, sourceID string, at time.Time) (Reply, error) {
+	if f.channelURL == "" {
+		// Канал не задан — уточняющий вопрос всё же лучше тупика.
+		reply, _ := f.stepFor(StageOther)
+		return reply, nil
+	}
+
+	event := Event{
+		TelegramID: user.TelegramID,
+		Name:       EventChannelOffered,
+		SourceID:   sourceID,
+		Metadata:   map[string]string{"place": "after_decline"},
+		OccurredAt: at,
+	}
+	if err := s.AppendEvent(ctx, event); err != nil {
+		return Reply{}, fmt.Errorf("appending %s: %w", EventChannelOffered, err)
+	}
+
+	return Reply{
+		Text: lines(
+			"Понял, не буду навязывать.",
+			"",
+			"Тогда просто оставлю канал: там разборы и находки появляются раньше, чем доезжают до сайта.",
+		),
+		Buttons: []Button{{Label: labelReadChannel, URL: f.channelURL}},
+	}, nil
+}
+
+// labelReadChannel — одна и та же кнопка в обоих местах, где предлагается
+// канал. Разные слова про одно действие читались бы как разные действия.
+const labelReadChannel = "Читать канал"
 
 // Имена офферов. Их видит только аналитика, человеку они не показываются.
 const (
@@ -187,9 +240,76 @@ func (f *Funnel) JoinWaitlist(ctx context.Context, cmd JoinWaitlistCommand) (Rep
 				"",
 				"Пока можно читать канал: там разборы и находки появляются раньше, чем доезжают до сайта.",
 			)
-			reply.Buttons = []Button{{Label: "Читать канал", URL: f.channelURL}}
+			reply.Buttons = []Button{{Label: labelReadChannel, URL: f.channelURL}}
+
+			shown := Event{
+				TelegramID: cmd.User.TelegramID,
+				Name:       EventChannelOffered,
+				SourceID:   sourceID,
+				Metadata:   map[string]string{"place": "after_waitlist"},
+				OccurredAt: at,
+			}
+			if err := s.AppendEvent(ctx, shown); err != nil {
+				return Reply{}, fmt.Errorf("appending %s: %w", EventChannelOffered, err)
+			}
 		}
 		return reply, nil
+	})
+}
+
+// BlockCommand — человек заблокировал бота или вернулся.
+type BlockCommand struct {
+	UpdateID int64
+	User     User
+	Blocked  bool
+}
+
+// SetBlocked записывает блокировку.
+//
+// Это не шаг воронки, а её потолок: заблокировавшему нельзя написать
+// вообще ничего. Без этой отметки предзапись на десять человек тихо
+// превращается в рассылку на семь, и узнаётся это в день эфира.
+//
+// Отдельно от step() именно потому, что здесь нельзя заводить человека:
+// заблокировать бота можно и не запуская его, из профиля. Такой человек
+// не лид, и строка в users испортила бы знаменатель во всех отчётах.
+func (f *Funnel) SetBlocked(ctx context.Context, cmd BlockCommand) error {
+	return f.db.Atomically(ctx, func(s Store) error {
+		seen, err := s.MarkUpdate(ctx, cmd.UpdateID)
+		if err != nil {
+			return fmt.Errorf("marking update %d: %w", cmd.UpdateID, err)
+		}
+		if seen {
+			return nil
+		}
+
+		known, err := s.HasUser(ctx, cmd.User.TelegramID)
+		if err != nil {
+			return fmt.Errorf("checking user %d: %w", cmd.User.TelegramID, err)
+		}
+		if !known {
+			return nil
+		}
+
+		sourceID, err := s.LastSource(ctx, cmd.User.TelegramID)
+		if err != nil {
+			return fmt.Errorf("reading last source: %w", err)
+		}
+
+		name := EventBotUnblocked
+		if cmd.Blocked {
+			name = EventBotBlocked
+		}
+		event := Event{
+			TelegramID: cmd.User.TelegramID,
+			Name:       name,
+			SourceID:   sourceID,
+			OccurredAt: f.now(),
+		}
+		if err := s.AppendEvent(ctx, event); err != nil {
+			return fmt.Errorf("appending %s: %w", name, err)
+		}
+		return nil
 	})
 }
 

@@ -44,6 +44,10 @@ type Filter struct {
 	Source string
 	// Stage — состояние человека, NoValue = «не ответил», пустая = все.
 	Stage string
+	// Channel — отношение к каналу: подписан, отписался, NoValue = «не
+	// подписан», пустая = все. Отдельный фильтр, а не состояние: подписка
+	// не отменяет того, что человек ответил про свою контент-систему.
+	Channel string
 	// Since — берём только пришедших после этого момента. Отбор идёт по
 	// дате первого появления, а не по датам событий: иначе в воронке
 	// смешаются люди, у которых часть шагов осталась за границей периода,
@@ -90,6 +94,15 @@ type Lead struct {
 	Materials  string    `db:"materials"`
 	Opened     bool      `db:"opened"`
 	Waitlist   bool      `db:"waitlist"`
+	// Subscribed и Churned — отношение к каналу. Два поля, а не одно с
+	// тремя значениями: «не подписан» и «отписался» это разные люди, и
+	// первого ещё можно позвать, а второго уже позвали.
+	Subscribed bool `db:"subscribed"`
+	Churned    bool `db:"churned"`
+	// Blocked — человеку нельзя написать. Это потолок всего остального:
+	// он может быть записан на эфир и подписан на канал, а сообщение о
+	// дате до него всё равно не дойдёт.
+	Blocked bool `db:"blocked"`
 }
 
 // Moment — одно событие в истории человека.
@@ -139,6 +152,16 @@ type Reader interface {
 	HiddenPeople(ctx context.Context, f Filter) (int, error)
 	Timeline(ctx context.Context, f Filter, limit int) ([]TimelineRow, error)
 	Daily(ctx context.Context, f Filter) ([]Day, error)
+
+	// Канал. Отдельными методами, а не полями в существующих: подписка
+	// живёт по своему времени и своей когорте, и пришивать её к таблице
+	// лидов значит однажды посчитать проценты не от того знаменателя.
+	ChannelSummary(ctx context.Context, f Filter) (ChannelSummary, error)
+	ChannelConversion(ctx context.Context, f Filter) (ChannelConversion, error)
+	ChannelDaily(ctx context.Context, f Filter) ([]ChannelDay, error)
+	ChannelSources(ctx context.Context, f Filter) ([]ChannelSource, error)
+	ChannelPeople(ctx context.Context, f Filter, c ChannelCohort, limit int) ([]ChannelPerson, error)
+	ChannelMember(ctx context.Context, telegramID int64) (ChannelPerson, bool, error)
 }
 
 // Порядок и человеческие названия шагов. Порядок задаётся здесь, а не
@@ -161,6 +184,9 @@ var stageOrder = []struct{ name, label, note string }{
 // stageOrder, здесь только то, что в неё не входит.
 var momentLabels = map[string]string{
 	"alternative_asked": "Попросил другой материал",
+	"channel_offered":   "Показали канал",
+	"bot_blocked":       "Заблокировал бота",
+	"bot_unblocked":     "Вернулся из блокировки",
 }
 
 // Периоды, между которыми можно переключаться. Ноль — за всё время.
@@ -257,9 +283,10 @@ func momentLabel(name string) string {
 func (h *Handler) parseFilter(r *http.Request, now time.Time) (Filter, int) {
 	q := r.URL.Query()
 	filter := Filter{
-		Source: q.Get("source"),
-		Stage:  q.Get("stage"),
-		Hidden: h.hidden,
+		Source:  q.Get("source"),
+		Stage:   q.Get("stage"),
+		Channel: channelFilter(q.Get("channel")),
+		Hidden:  h.hidden,
 	}
 
 	days := 0

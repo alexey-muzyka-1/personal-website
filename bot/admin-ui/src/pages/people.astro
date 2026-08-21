@@ -72,6 +72,7 @@ import Admin from '../layouts/Admin.astro';
         el('th', { scope: 'col', text: 'Откуда' }),
         el('th', { scope: 'col', text: 'Состояние' }),
         el('th', { scope: 'col', text: 'Забрал' }),
+        el('th', { scope: 'col', text: 'Канал' }),
         el('th', { scope: 'col', text: '' }))));
 
     const body = el('tbody');
@@ -84,13 +85,25 @@ import Admin from '../layouts/Admin.astro';
         el('td', {}, p.source ? el('code', { text: p.source }) : el('span', { class: 'muted', text: 'без метки' })),
         el('td', {},
           p.stageLabel,
-          p.waitlist ? el('div', { class: 'good', text: 'на эфире' }) : null),
+          p.waitlist ? el('div', { class: 'good', text: 'на эфире' }) : null,
+          // Блокировка стоит рядом с состоянием, а не в колонке канала:
+          // это потолок для всего, что мы собирались человеку написать.
+          p.blocked ? el('div', { class: 'bad', text: 'заблокировал бота' }) : null),
         el('td', {},
           p.materials ? el('code', { text: p.materials }) : el('span', { class: 'muted', text: 'ничего' }),
           p.opened ? el('div', { class: 'muted', text: 'открыл' }) : null),
+        el('td', {}, channelCell(p)),
         el('td', {}, el('a', { href: p.chat, text: 'написать' }))));
     }
     table.append(body);
     host.append(table);
+  }
+
+  // Ушедший и никогда не подписывавшийся — не одно и то же: первого уже
+  // звали, второго ещё нет.
+  function channelCell(p) {
+    if (p.subscribed) return el('span', { class: 'good', text: 'в канале' });
+    if (p.churned) return el('span', { class: 'bad', text: 'ушёл' });
+    return el('span', { class: 'muted', text: '—' });
   }
 </script>

@@ -489,6 +489,208 @@ func TestNoOfferIsADeadEnd(t *testing.T) {
 	}
 }
 
+const testChannel = "https://t.me/alexeymuzykablog"
+
+// channelFunnel — воронка с заданным каналом. У обычной тестовой его нет,
+// и предложение канала честно вырождается в уточняющий вопрос.
+func channelFunnel(t *testing.T) (*funnel.Funnel, *memstore.Memory) {
+	t.Helper()
+
+	mem := memstore.NewMemory()
+	at := time.Date(2026, time.August, 18, 12, 0, 0, 0, time.UTC)
+	issued := 0
+
+	f, err := funnel.New(mem, funnel.DefaultCatalog(), siteBase, linkBase,
+		funnel.WithClock(func() time.Time { return at }),
+		funnel.WithTokenSource(func() (string, error) {
+			issued++
+			return fmt.Sprintf("token-%d", issued), nil
+		}),
+		funnel.WithChannel(testChannel),
+	)
+	if err != nil {
+		t.Fatalf("funnel.New: %v", err)
+	}
+	return f, mem
+}
+
+// upToOffer доводит человека до показанного оффера.
+func upToOffer(t *testing.T, f *funnel.Funnel, stage funnel.Stage) {
+	t.Helper()
+	ctx := context.Background()
+
+	reply, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if _, err := f.Open(ctx, tokenOf(t, reply)); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: stage}); err != nil {
+		t.Fatalf("AnswerStage: %v", err)
+	}
+}
+
+// Отказ от оффера раньше вёл к уточняющему вопросу, а тот — обратно к
+// тому же самому офферу. Это был не выход, а круг. Теперь на отказ
+// показывается канал: единственное, что можно дать бесплатно.
+func TestDeclinedOfferLeadsToTheChannel(t *testing.T) {
+	for name, stage := range map[string]funnel.Stage{
+		"не выпускает": funnel.StageNotShipping,
+		"нет сигнала":  funnel.StageNoSignal,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f, mem := channelFunnel(t)
+			upToOffer(t, f, stage)
+
+			answer, err := f.AnswerStage(context.Background(), funnel.StageCommand{
+				UpdateID: 3, User: testUser, Stage: funnel.StageOther,
+			})
+			if err != nil {
+				t.Fatalf("AnswerStage: %v", err)
+			}
+
+			if len(answer.Buttons) != 1 || answer.Buttons[0].URL != testChannel {
+				t.Fatalf("после отказа нет кнопки канала: %+v", answer.Buttons)
+			}
+			shown := findEvent(t, mem, "channel_offered")
+			if shown.Metadata["place"] != "after_decline" {
+				t.Errorf("место показа = %q", shown.Metadata["place"])
+			}
+		})
+	}
+}
+
+// Первый «другая ситуация» — это не отказ от оффера, а ответ на вопрос о
+// состоянии. Здесь уточняющий вопрос по-прежнему единственно верный.
+func TestFirstTimeOtherStillAsksTheQuestion(t *testing.T) {
+	f, mem := channelFunnel(t)
+	ctx := context.Background()
+
+	reply, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if _, err := f.Open(ctx, tokenOf(t, reply)); err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	answer, err := f.AnswerStage(ctx, funnel.StageCommand{UpdateID: 2, User: testUser, Stage: funnel.StageOther})
+	if err != nil {
+		t.Fatalf("AnswerStage: %v", err)
+	}
+	for _, b := range answer.Buttons {
+		if b.URL != "" {
+			t.Fatalf("вместо вопроса показан канал: %+v", answer.Buttons)
+		}
+	}
+	for _, e := range mem.Events() {
+		if e.Name == "channel_offered" {
+			t.Error("канал предложен до того, как что-то предлагали")
+		}
+	}
+}
+
+// Без заданного канала отказ обязан остаться уточняющим вопросом:
+// молчание было бы тупиком.
+func TestDeclineWithoutAChannelStillHasAWayOut(t *testing.T) {
+	f, _ := newMemoryFunnel(t)
+	upToOffer(t, f, funnel.StageNotShipping)
+
+	answer, err := f.AnswerStage(context.Background(), funnel.StageCommand{
+		UpdateID: 3, User: testUser, Stage: funnel.StageOther,
+	})
+	if err != nil {
+		t.Fatalf("AnswerStage: %v", err)
+	}
+	if len(answer.Buttons) == 0 {
+		t.Error("отказ без канала оставил человека без кнопок")
+	}
+}
+
+func TestWaitlistAlsoRecordsTheChannelOffer(t *testing.T) {
+	f, mem := channelFunnel(t)
+	upToOffer(t, f, funnel.StageNotShipping)
+
+	if _, err := f.JoinWaitlist(context.Background(), funnel.JoinWaitlistCommand{UpdateID: 3, User: testUser}); err != nil {
+		t.Fatalf("JoinWaitlist: %v", err)
+	}
+	if shown := findEvent(t, mem, "channel_offered"); shown.Metadata["place"] != "after_waitlist" {
+		t.Errorf("место показа = %q", shown.Metadata["place"])
+	}
+}
+
+// Блокировка — потолок воронки: заблокировавшему нельзя написать вообще
+// ничего, и без отметки об этом рассылка «всем записавшимся» уходит в
+// пустоту молча.
+func TestBlockIsRecorded(t *testing.T) {
+	f, mem := newMemoryFunnel(t)
+	ctx := context.Background()
+
+	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser, Payload: "reel_a"}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if err := f.SetBlocked(ctx, funnel.BlockCommand{UpdateID: 2, User: testUser, Blocked: true}); err != nil {
+		t.Fatalf("SetBlocked: %v", err)
+	}
+
+	blocked := findEvent(t, mem, "bot_blocked")
+	if blocked.SourceID != "reel_a" {
+		t.Errorf("метка = %q: событие должно оставаться разбираемым в одиночку", blocked.SourceID)
+	}
+
+	if err := f.SetBlocked(ctx, funnel.BlockCommand{UpdateID: 3, User: testUser}); err != nil {
+		t.Fatalf("SetBlocked: %v", err)
+	}
+	findEvent(t, mem, "bot_unblocked")
+}
+
+// Заблокировать бота можно и не запуская его — из профиля. Такой человек
+// не лид, и заводить ему карточку значит испортить знаменатель всюду.
+func TestBlockFromAStrangerCreatesNobody(t *testing.T) {
+	f, mem := newMemoryFunnel(t)
+
+	err := f.SetBlocked(context.Background(), funnel.BlockCommand{
+		UpdateID: 1,
+		User:     funnel.User{TelegramID: 999},
+		Blocked:  true,
+	})
+	if err != nil {
+		t.Fatalf("SetBlocked: %v", err)
+	}
+
+	if _, _, _, ok := mem.User(999); ok {
+		t.Error("незнакомец стал лидом")
+	}
+	if len(mem.Events()) != 0 {
+		t.Errorf("события на незнакомца: %v", eventNames(mem.Events()))
+	}
+}
+
+func TestRepeatedBlockUpdateIsIgnored(t *testing.T) {
+	f, mem := newMemoryFunnel(t)
+	ctx := context.Background()
+
+	if _, err := f.Start(ctx, funnel.StartCommand{UpdateID: 1, User: testUser}); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	for range 2 {
+		if err := f.SetBlocked(ctx, funnel.BlockCommand{UpdateID: 2, User: testUser, Blocked: true}); err != nil {
+			t.Fatalf("SetBlocked: %v", err)
+		}
+	}
+
+	var blocks int
+	for _, e := range mem.Events() {
+		if e.Name == "bot_blocked" {
+			blocks++
+		}
+	}
+	if blocks != 1 {
+		t.Errorf("блокировок = %d, хочу одну", blocks)
+	}
+}
+
 // tokenOf достаёт токен из кнопки-ссылки.
 func tokenOf(t *testing.T, reply funnel.Reply) string {
 	t.Helper()

@@ -29,15 +29,16 @@ deploy/compose.sh --profile tools run --rm migrate up   # схема
 deploy/compose.sh up -d                   # потом всё остальное
 ```
 
-Когда контейнеры поднялись — один раз зарегистрировать webhook:
+Webhook регистрируется сам, на каждом старте — включать это нечем и не
+надо. Проверить, что регистрация прошла:
 
 ```bash
-# в .env: TELEGRAM_SET_WEBHOOK=true
-deploy/compose.sh up -d bot
 deploy/compose.sh logs bot | grep "webhook registered"
-# вернуть TELEGRAM_SET_WEBHOOK=false, чтобы не дёргать Telegram
-# при каждом рестарте
 ```
+
+Отдельно: бот должен быть админом канала. Без этого он не получит ни
+одной подписки и не сможет спросить размер канала — на странице «Канал»
+это видно сразу, снимок перестаёт обновляться.
 
 Проверка:
 

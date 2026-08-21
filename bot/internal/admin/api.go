@@ -18,9 +18,17 @@ import (
 // паролем, им нечего делать ни в браузере, ни по дороге.
 
 type apiFilter struct {
-	Source string `json:"source"`
-	Stage  string `json:"stage"`
-	Days   int    `json:"days"`
+	Source  string `json:"source"`
+	Stage   string `json:"stage"`
+	Channel string `json:"channel"`
+	Days    int    `json:"days"`
+}
+
+// filterBody — срез в ответе. Собирается в одном месте: страницы рисуют
+// по нему активные фильтры, и забытое поле выглядит как сброшенный
+// фильтр, хотя данные отфильтрованы.
+func filterBody(f Filter, days int) apiFilter {
+	return apiFilter{Source: f.Source, Stage: f.Stage, Channel: f.Channel, Days: days}
 }
 
 type apiStep struct {
@@ -64,6 +72,9 @@ type apiLead struct {
 	Materials  string `json:"materials"`
 	Opened     bool   `json:"opened"`
 	Waitlist   bool   `json:"waitlist"`
+	Subscribed bool   `json:"subscribed"`
+	Churned    bool   `json:"churned"`
+	Blocked    bool   `json:"blocked"`
 }
 
 type apiMoment struct {
@@ -158,7 +169,7 @@ func (h *Handler) ServeOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{
-		"filter":   apiFilter{Source: filter.Source, Stage: filter.Stage, Days: days},
+		"filter":   filterBody(filter, days),
 		"steps":    steps,
 		"segments": outSegments,
 		"sources":  outSources,
@@ -224,9 +235,28 @@ func (h *Handler) ServePerson(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Подписка живёт в другой таблице и приходит другим путём, поэтому её
+	// нет среди шагов. Но на карточке человека она нужна: «открыл разбор и
+	// подписался» и «открыл разбор и ушёл» — это разные люди.
+	member, found, err := h.reader.ChannelMember(ctx, id)
+	if err != nil {
+		h.failJSON(w, "person channel", err)
+		return
+	}
+	var subscription any
+	if found {
+		subscription = map[string]any{
+			"subscribed": member.Subscribed,
+			"joined":     moment(member.JoinedAt),
+			"left":       moment(member.LeftAt),
+			"days":       lived(member, h.now()),
+		}
+	}
+
 	writeJSON(w, map[string]any{
 		"person":  toAPILead(person.Lead),
 		"moments": moments,
+		"channel": subscription,
 	})
 }
 
@@ -318,7 +348,7 @@ func (h *Handler) ServeSources(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{
-		"filter":    apiFilter{Source: filter.Source, Stage: filter.Stage, Days: days},
+		"filter":    filterBody(filter, days),
 		"channels":  out,
 		"materials": materials,
 		"fallback":  h.catalog.Fallback().ID,
@@ -376,6 +406,9 @@ func toAPILead(l Lead) apiLead {
 		Materials:  l.Materials,
 		Opened:     l.Opened,
 		Waitlist:   l.Waitlist,
+		Subscribed: l.Subscribed,
+		Churned:    l.Churned,
+		Blocked:    l.Blocked,
 	}
 }
 

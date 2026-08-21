@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alexey-muzyka-1/personal-website/bot/internal/channel"
 	"github.com/alexey-muzyka-1/personal-website/bot/internal/funnel"
 )
 
@@ -164,15 +165,57 @@ func keyboard(buttons []funnel.Button) (*inlineKeyboard, error) {
 	return &inlineKeyboard{InlineKeyboard: rows}, nil
 }
 
-// apiResponse — общая обёртка Bot API. Тело результата нам не нужно:
-// бот ничего не читает из ответа, кроме факта успеха.
+// apiResponse — общая обёртка Bot API. Result разбирается только там, где
+// ответ действительно нужен: в переписке боту хватает факта успеха, а вот
+// про канал Telegram отвечает цифрами.
 type apiResponse struct {
-	OK          bool   `json:"ok"`
-	Description string `json:"description"`
-	ErrorCode   int    `json:"error_code"`
+	OK          bool            `json:"ok"`
+	Description string          `json:"description"`
+	ErrorCode   int             `json:"error_code"`
+	Result      json.RawMessage `json:"result"`
+}
+
+// ChatMemberCount — сколько человек в канале прямо сейчас.
+func (c *Client) ChatMemberCount(ctx context.Context, chat string) (int, error) {
+	req := struct {
+		ChatID string `json:"chat_id"`
+	}{ChatID: chat}
+
+	var count int
+	if err := c.callInto(ctx, "getChatMemberCount", req, &count); err != nil {
+		return 0, fmt.Errorf("getChatMemberCount: %w", err)
+	}
+	return count, nil
+}
+
+// ChatMember — статус одного человека в канале.
+//
+// Это единственный способ узнать про подписку того, кто подписался до
+// того, как бот стал админом: списка участников Bot API не отдаёт, и
+// спрашивать приходится поимённо, про каждого, кого мы и так знаем.
+func (c *Client) ChatMember(ctx context.Context, chat string, userID int64) (channel.Member, string, error) {
+	req := struct {
+		ChatID string `json:"chat_id"`
+		UserID int64  `json:"user_id"`
+	}{ChatID: chat, UserID: userID}
+
+	var member ChatMember
+	if err := c.callInto(ctx, "getChatMember", req, &member); err != nil {
+		return channel.Member{}, "", fmt.Errorf("getChatMember: %w", err)
+	}
+
+	out := channel.Member{TelegramID: userID}
+	if member.User != nil {
+		out.Username, out.FirstName = member.User.Username, member.User.FirstName
+	}
+	return out, member.Status, nil
 }
 
 func (c *Client) call(ctx context.Context, method string, payload any) error {
+	return c.callInto(ctx, method, payload, nil)
+}
+
+func (c *Client) callInto(ctx context.Context, method string, payload, out any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encoding request: %w", err)
@@ -200,6 +243,12 @@ func (c *Client) call(ctx context.Context, method string, payload any) error {
 	if !parsed.OK {
 		return fmt.Errorf("bot api error %d: %s", parsed.ErrorCode, parsed.Description)
 	}
+	if out == nil {
+		return nil
+	}
+	if err := json.Unmarshal(parsed.Result, out); err != nil {
+		return fmt.Errorf("decoding result of %s: %w", method, err)
+	}
 	return nil
 }
 
@@ -220,21 +269,30 @@ type setWebhookRequest struct {
 	// от чужих.
 	SecretToken    string   `json:"secret_token"`
 	AllowedUpdates []string `json:"allowed_updates"`
-	// Старые накопившиеся апдейты после переезда не нужны: они относятся
-	// к другому состоянию бота.
-	DropPending bool `json:"drop_pending_updates"`
 }
+
+// AllowedUpdates — что бот просит присылать.
+//
+// Список обязателен целиком при каждом вызове: Telegram не дополняет
+// прежний набор, а заменяет его. И chat_member в него входить обязан —
+// без явного упоминания подписки на канал не приходят вовсе, по
+// умолчанию этот тип выключен.
+var AllowedUpdates = []string{"message", "callback_query", "chat_member", "my_chat_member"}
 
 // SetWebhook регистрирует адрес webhook в Telegram.
 //
-// Вызывается только по явному флагу при старте: это внешнее изменение,
-// которое переключает боевого бота на новый адрес.
+// Вызывается на каждом старте, а не по флагу. Флаг был грабли: набор
+// нужных типов update меняется вместе с кодом, и «выкатить и не забыть
+// один раз включить переменную» означает молча остаться без половины
+// событий. Вызов идемпотентный — тот же адрес и тот же секрет.
+//
+// Накопившиеся update не сбрасываются: рестарт это не переезд, а очередь
+// за время простоя — это люди, которые нажали кнопку, пока бот лежал.
 func (c *Client) SetWebhook(ctx context.Context, url, secret string) error {
 	req := setWebhookRequest{
 		URL:            url,
 		SecretToken:    secret,
-		AllowedUpdates: []string{"message", "callback_query"},
-		DropPending:    true,
+		AllowedUpdates: AllowedUpdates,
 	}
 	if err := c.call(ctx, "setWebhook", req); err != nil {
 		return fmt.Errorf("setWebhook: %w", err)

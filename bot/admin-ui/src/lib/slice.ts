@@ -1,7 +1,7 @@
 // Полоса управления срезом: период, активные фильтры, выгрузка.
 // Одна на все страницы — иначе «этот источник за неделю» на разных
 // страницах означало бы разное.
-import { PERIODS, NO_VALUE, href, readSlice, el, type Slice } from './api.ts';
+import { PERIODS, NO_VALUE, CHANNEL, href, params, readSlice, el, type Slice } from './api.ts';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -44,6 +44,14 @@ export function stageLabel(v: string): string {
   }
 }
 
+/** channelLabel — подпись фильтра по каналу. Со словом «канал» внутри
+ *  самой подписи: чип «отписался» без него читается как состояние
+ *  человека, а не как отношение к каналу. */
+export function channelLabel(v: string): string {
+  const found = CHANNEL.find((c) => c.value === v);
+  return found ? `канал: ${found.label}` : `канал: ${v}`;
+}
+
 /** renderSlice рисует полосу управления. page — на какую страницу
  *  возвращают ссылки периодов и фильтров, чтобы срез менялся, не уводя
  *  человека с той страницы, где он сейчас. */
@@ -75,12 +83,17 @@ export function renderSlice(host: Element | null, page: string, slice: Slice = r
         `состояние: ${stageLabel(slice.stage)}`, ICON.clear()),
     );
   }
+  if (slice.channel) {
+    host.append(
+      el('a', { class: 'pill chip', href: href(page, slice, { channel: '' }) },
+        channelLabel(slice.channel), ICON.clear()),
+    );
+  }
 
   const right = el('span', { class: 'right' });
-  const q = new URLSearchParams();
-  if (slice.source) q.set('source', slice.source);
-  if (slice.stage) q.set('stage', slice.stage);
-  if (slice.days) q.set('days', String(slice.days));
+  // Выгрузка идёт тем же срезом, что на экране: собираем адрес из того же
+  // места, иначе однажды на странице будет один фильтр, а в файле другой.
+  const q = params(slice);
   const link = `${BASE}export.xlsx${q.toString() ? '?' + q : ''}`;
   right.append(el('a', { class: 'pill', href: link, download: '' }, ICON.download(), ' Excel'));
   host.append(right);

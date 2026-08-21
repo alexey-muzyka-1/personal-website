@@ -172,12 +172,25 @@ func renderDialog(ctx context.Context, b *strings.Builder) error {
 			}
 			writeScreen(b, "5. Нажал «"+answer.Buttons[0].Label+"»", "кнопка `waitlist:me`", joined)
 		}
+
+		// Отказ от оффера показывается один раз: обоим отказавшимся бот
+		// говорит одно и то же.
+		if branch.stage == funnel.StageNoSignal {
+			declined, _, err := sess.answerStage(ctx, funnel.StageOther)
+			if err != nil {
+				return err
+			}
+			writeScreen(b, "5. Нажал «"+answer.Buttons[1].Label+"»",
+				"кнопка `stage:other` после показанного оффера", declined)
+		}
 	}
 
 	b.WriteString("Два оффера одновременно не показываются никогда: у каждого ")
-	b.WriteString("состояния ровно один следующий шаг. «Другая ситуация» не тупик ")
-	b.WriteString("и не меню — один уточняющий вопрос возвращает человека в одно ")
-	b.WriteString("из двух состояний.\n\n")
+	b.WriteString("состояния ровно один следующий шаг. «Другая ситуация» на входе — ")
+	b.WriteString("уточняющий вопрос, возвращающий человека в одно из двух состояний. ")
+	b.WriteString("Та же кнопка после показанного оффера означает отказ, и тогда ")
+	b.WriteString("вопрос был бы кругом: вместо него предлагается канал — ")
+	b.WriteString("единственное, что можно дать бесплатно.\n\n")
 	return nil
 }
 

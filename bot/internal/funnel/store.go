@@ -25,6 +25,10 @@ type Store interface {
 	// получит дубль сообщения, а воронка дубль события.
 	MarkUpdate(ctx context.Context, updateID int64) (seen bool, err error)
 	SaveUser(ctx context.Context, u User, at time.Time) error
+	// HasUser — знаем ли мы этого человека. Отличает лида от того, кто
+	// заблокировал бота, не запуская его: второму заводить карточку
+	// нельзя, иначе он попадёт в число пришедших.
+	HasUser(ctx context.Context, telegramID int64) (bool, error)
 	// SetUserStage запоминает состояние человека. Оно меняется: тот, кто
 	// не выпускал, однажды начнёт.
 	SetUserStage(ctx context.Context, telegramID int64, stage Stage) error

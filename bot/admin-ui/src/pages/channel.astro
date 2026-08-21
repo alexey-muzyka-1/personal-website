@@ -1,0 +1,257 @@
+---
+import Admin from '../layouts/Admin.astro';
+---
+
+<Admin title="Канал" page="channel">
+  <div class="bar" data-slice></div>
+
+  <div data-health></div>
+  <div class="tiles" data-tiles></div>
+
+  <section class="card">
+    <h2>Подписки и отписки по дням</h2>
+    <div data-chart></div>
+  </section>
+
+  <section class="card">
+    <h2>Что воронка даёт каналу</h2>
+    <div data-conversion></div>
+  </section>
+
+  <section class="card">
+    <h2>Метки до подписки</h2>
+    <div data-sources></div>
+  </section>
+
+  <section class="card">
+    <h2>Кто ушёл</h2>
+    <div data-gone></div>
+  </section>
+
+  <section class="card">
+    <h2>Подписались мимо бота</h2>
+    <div data-outside></div>
+  </section>
+</Admin>
+
+<script>
+  import { api, fail, readSlice, href, el, share, sourceLabel } from '../lib/api.ts';
+  import { renderSlice } from '../lib/slice.ts';
+  import { renderChannel } from '../lib/chart.ts';
+
+  const slice = readSlice();
+  renderSlice(document.querySelector('[data-slice]'), 'channel', slice);
+
+  const tiles = document.querySelector('[data-tiles]');
+
+  api('channel')
+    .then((d) => {
+      health(d);
+      counters(d);
+      renderChannel(document.querySelector('[data-chart]'), d.daily);
+      conversion(d);
+      sources(d.sources);
+      gone(d.gone);
+      outside(d.outside);
+    })
+    .catch((err) => fail(tiles, err));
+
+  // Замер, который перестал идти, выглядит на графике как «никто не
+  // подписывается». Разница между этими двумя вещами стоит дороже всего
+  // остального на странице, поэтому она стоит выше всего остального.
+  function health(d) {
+    const host = document.querySelector('[data-health]');
+    if (!host || !d.stale) return;
+    host.append(el('p', { class: 'card bad' },
+      d.measuredAt
+        ? `Размер канала последний раз снимали ${d.measuredAt}. Похоже, бот больше не админ канала — до этого события и подписки не доходят.`
+        : 'Размер канала ещё ни разу не снимали. Бот должен быть админом канала, иначе Telegram не отвечает ни на один вопрос про него.'));
+  }
+
+  function counters(d) {
+    if (!tiles) return;
+    const c = d.conversion;
+
+    const cells = [
+      ['Подписчиков', d.members, d.measuredAt ? `снято ${d.measuredAt}` : 'снимка ещё не было'],
+      ['Подписались', '+' + d.joined, d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
+      ['Отписались', '−' + d.left, d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
+      ['Пришли из бота', c.afterStart,
+        c.people ? `${share(c.afterStart, c.people)} от ${c.people} пришедших` : 'пришедших пока нет'],
+    ];
+
+    tiles.innerHTML = '';
+    for (const [k, v, s] of cells) {
+      tiles.append(el('div', { class: 'tile' },
+        el('div', { class: 'k', text: k }),
+        el('div', { class: 'v', text: v }),
+        el('div', { class: 's', text: s })));
+    }
+  }
+
+  // Корзины взаимоисключающие, и сумма сходится с числом пришедших.
+  // Проценты считаются от всех пришедших: доля от подписанных отвечала бы
+  // на вопрос, который никто не задавал.
+  function conversion(d) {
+    const host = document.querySelector('[data-conversion]');
+    if (!host) return;
+    const c = d.conversion;
+    host.innerHTML = '';
+
+    if (!c.people) {
+      host.append(el('p', { class: 'empty', text: 'В этом срезе никто не запускал бота, поэтому и считать нечего.' }));
+      return;
+    }
+
+    const rows = [
+      ['Подписались после бота', c.afterStart, 'это и есть работа воронки', 'member'],
+      ['Были подписаны раньше', c.beforeStart, 'пришли в бота уже из канала', 'member'],
+      ['Подписаны, дата неизвестна', c.undated, 'подписались до того, как мы начали считать', 'member'],
+      ['Отписались', c.left, 'подписывались и ушли', 'left'],
+      ['Не подписаны', c.never, 'дошли до бота и остались вне канала', '-'],
+    ];
+
+    const box = el('div', { class: 'bars' });
+    for (const [label, value, note, filter] of rows) {
+      const active = slice.channel === filter;
+      box.append(el('div', { class: 'row' },
+        el('div', { class: 'name' },
+          el('a', {
+            class: 'row-link',
+            href: href('people', slice, { channel: active ? '' : filter }),
+            'aria-current': active ? 'true' : undefined,
+            text: label,
+          }),
+          el('div', { class: 'note', text: note })),
+        el('div', { class: 'track' },
+          el('div', { class: 'fill', style: `width:${Math.max((value * 100) / c.people, value ? 1 : 0)}%` })),
+        el('div', { class: 'val' },
+          String(value), ' ',
+          el('span', { class: 'of', text: share(value, c.people) }))));
+    }
+    host.append(box);
+    host.append(el('p', { class: 'lede' },
+      `Пять строк складываются в ${c.people} — всех, кто запускал бота в этом срезе. `,
+      'Строка про неизвестную дату не ноль и не успех: Telegram не отдаёт дату подписки тех, ',
+      'кто подписался до того, как бот стал админом канала. Со временем она перестанет расти.'));
+  }
+
+  function sources(list) {
+    const host = document.querySelector('[data-sources]');
+    if (!host) return;
+    host.innerHTML = '';
+
+    if (!list.length) {
+      host.append(el('p', { class: 'empty', text: 'Пока никто не приходил: без людей в боте метки ничего не показывают.' }));
+      return;
+    }
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Метка' }),
+        el('th', { scope: 'col', class: 'num', text: 'Пришло' }),
+        el('th', { scope: 'col', class: 'num', text: 'Подписано' }),
+        el('th', { scope: 'col', class: 'num', text: 'Подписались после бота' }),
+        el('th', { scope: 'col', class: 'num', text: 'Доля' }))));
+
+    const body = el('tbody');
+    for (const s of list) {
+      const value = s.source === '' ? '-' : s.source;
+      const active = slice.source === value;
+      body.append(el('tr', { class: active ? 'picked' : '' },
+        el('td', {}, el('a', {
+          class: 'row-link',
+          href: href('people', slice, { source: active ? '' : value }),
+          'aria-current': active ? 'true' : undefined,
+          text: sourceLabel(s.source),
+        })),
+        el('td', { class: 'num', text: s.started }),
+        el('td', { class: 'num muted', text: s.subscribed }),
+        el('td', { class: 'num', text: s.afterStart }),
+        el('td', { class: 'num muted', text: s.started ? share(s.afterStart, s.started) : '' })));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede' },
+      'Заслуга метки — только последняя колонка. «Подписано» включает тех, ',
+      'кто был в канале раньше, чем узнал про бота, и приписывать их Reel нельзя.'));
+  }
+
+  function gone(list) {
+    const host = document.querySelector('[data-gone]');
+    if (!host) return;
+    host.innerHTML = '';
+
+    if (!list.length) {
+      host.append(el('p', { class: 'empty', text: 'За этот период никто не отписывался.' }));
+      return;
+    }
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Кто' }),
+        el('th', { scope: 'col', text: 'Ушёл' }),
+        el('th', { scope: 'col', class: 'num', text: 'Прожил' }),
+        el('th', { scope: 'col', text: 'Откуда' }),
+        el('th', { scope: 'col', text: '' }))));
+
+    const body = el('tbody');
+    for (const p of list) {
+      body.append(el('tr', {},
+        el('td', {},
+          p.lead
+            ? el('a', { class: 'row-link', href: person(p.telegramId), text: p.handle })
+            : el('span', {}, p.handle),
+          el('div', { class: 'muted id', text: p.telegramId })),
+        el('td', { class: 'muted', text: p.left }),
+        el('td', { class: 'num muted', text: p.joined ? `${p.days} дн.` : '—' }),
+        el('td', {},
+          p.source
+            ? el('code', { text: p.source })
+            : el('span', { class: 'muted', text: p.lead ? 'без метки' : 'не из бота' })),
+        el('td', {}, el('a', { href: p.chat, text: 'написать' }))));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede' },
+      'Прочерк вместо срока жизни — у тех, кто подписался до начала замера: ',
+      'даты подписки у них нет, а значит нет и срока.'));
+  }
+
+  function outside(list) {
+    const host = document.querySelector('[data-outside]');
+    if (!host) return;
+    host.innerHTML = '';
+
+    if (!list.length) {
+      host.append(el('p', { class: 'empty', text: 'Никто не подписался мимо бота с начала замера. Тех, кто подписался раньше, Telegram не называет: списка участников канала в Bot API нет.' }));
+      return;
+    }
+
+    const table = el('table', {},
+      el('thead', {}, el('tr', {},
+        el('th', { scope: 'col', text: 'Кто' }),
+        el('th', { scope: 'col', text: 'Подписался' }),
+        el('th', { scope: 'col', text: '' }))));
+
+    const body = el('tbody');
+    for (const p of list) {
+      body.append(el('tr', {},
+        el('td', {},
+          p.handle,
+          el('div', { class: 'muted id', text: p.telegramId })),
+        el('td', { class: 'muted', text: p.joined || 'до начала замера' }),
+        el('td', {}, el('a', { href: p.chat, text: 'написать' }))));
+    }
+    table.append(body);
+    host.append(table);
+    host.append(el('p', { class: 'lede' },
+      'Это люди из канала, которые ни разу не открывали бота. Написать им первым бот не может — ',
+      'Telegram не даёт. Ссылка открывает переписку из вашего аккаунта.'));
+  }
+
+  function person(id) {
+    const base = href('person', slice);
+    return base + (base.includes('?') ? '&' : '?') + 'id=' + id;
+  }
+</script>

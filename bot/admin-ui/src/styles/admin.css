@@ -16,6 +16,9 @@
   --pick: #ece7dc;
   --warn: #7f6436;
   --good: #3f6b4a;
+  /* Отписки и остановившийся замер. Не красный светофор: уход человека
+     из канала — обычное событие, а не авария. */
+  --bad: #9c4321;
   --radius: 10px;
 }
 
@@ -30,6 +33,7 @@
     --pick: #221e17;
     --warn: #c8a76a;
     --good: #8fbb9a;
+    --bad: #d98b66;
   }
 }
 
@@ -124,6 +128,7 @@ th.num { text-align: right; }
 .of::after { content: ")"; }
 .note { color: var(--warn); font-size: .78rem; }
 .good { color: var(--good); }
+.bad { color: var(--bad); }
 .empty { color: var(--muted); padding: 14px 0; max-width: 62ch; }
 .lede { color: var(--muted); font-size: .85rem; max-width: 68ch; margin: 10px 0 0; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86em; }
