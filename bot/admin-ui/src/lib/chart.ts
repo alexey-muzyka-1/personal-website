@@ -130,8 +130,15 @@ export function renderChannel(host: Element | null, days: ChannelDay[]): void {
   if (!host) return;
   host.innerHTML = '';
 
-  if (!days.length) {
-    host.append(el('p', { class: 'empty', text: 'Пока не с чего строить: замер только начался.' }));
+  // Пустой ряд и ряд без единого движения — одно и то же для глаза:
+  // двести пикселей пустой рамки вместо ответа. Отвечаем словами.
+  const moved = days.some((d) => d.joined || d.gone);
+  if (!days.length || !moved) {
+    const since = days.length ? days[days.length - 1].members : 0;
+    host.append(el('p', { class: 'empty' },
+      days.length
+        ? `С первого снимка никто не подписался и не отписался. Сейчас в канале ${since}.`
+        : 'Пока не с чего строить: замер только начался.'));
     return;
   }
 

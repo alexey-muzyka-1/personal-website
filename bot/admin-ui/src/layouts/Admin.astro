@@ -2,6 +2,7 @@
 // Каркас всех страниц админки: шапка, навигация, общий язык оформления.
 // Данные страницы забирают сами — здесь только рамка.
 import '../styles/admin.css';
+import { sections, sectionOf } from '../data/nav';
 
 interface Props {
   title: string;
@@ -10,15 +11,10 @@ interface Props {
 const { title, page } = Astro.props;
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-// Канал стоит после источников и до сообщений: сначала откуда пришли,
-// потом где остались, и только потом что именно им говорил бот.
-const tabs = [
-  { id: 'funnel', href: base, label: 'Обзор' },
-  { id: 'sources', href: base + 'sources/', label: 'Источники' },
-  { id: 'channel', href: base + 'channel/', label: 'Канал' },
-  { id: 'scenario', href: base + 'scenario/', label: 'Сообщения' },
-  { id: 'people', href: base + 'people/', label: 'Люди' },
-];
+const current = sectionOf(page);
+// Второй ряд рисуется только там, где внутри раздела есть выбор. Ряд из
+// одной вкладки — это не навигация, а повтор заголовка.
+const inner = current.pages.length > 1 ? current.pages : [];
 ---
 
 <!doctype html>
@@ -36,11 +32,25 @@ const tabs = [
         <a class="brand" href={base}>Личная воронка</a>
         <span class="grow" data-stamp></span>
       </div>
-      <nav class="tabs">
-        {tabs.map((t) => (
-          <a href={t.href} aria-current={t.id === page ? 'page' : undefined}>{t.label}</a>
+      <nav class="sections">
+        {sections.map((s) => (
+          <a
+            href={base + s.pages[0].path}
+            aria-current={s.id === current.id ? 'page' : undefined}
+          >
+            {s.label}
+            <span class="hint">{s.hint}</span>
+          </a>
         ))}
       </nav>
+
+      {inner.length > 0 && (
+        <nav class="tabs">
+          {inner.map((p) => (
+            <a href={base + p.path} aria-current={p.id === page ? 'page' : undefined}>{p.label}</a>
+          ))}
+        </nav>
+      )}
     </header>
 
     <slot />
@@ -54,7 +64,7 @@ const tabs = [
       .then((d) => {
         const el = document.querySelector('[data-stamp]');
         if (!el) return;
-        el.textContent = 'снято ' + d.now + (d.hidden ? ' · скрыт' + (d.hidden === 1 ? ' 1 тестовый аккаунт' : 'о ' + d.hidden + ' тестовых аккаунтов') : '');
+        el.textContent = 'снято ' + d.now;
       })
       .catch(() => {});
   </script>

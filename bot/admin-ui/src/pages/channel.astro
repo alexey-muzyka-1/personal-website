@@ -74,8 +74,10 @@ import Admin from '../layouts/Admin.astro';
 
     const cells = [
       ['Подписчиков', d.members, d.measuredAt ? `снято ${d.measuredAt}` : 'снимка ещё не было'],
-      ['Подписались', '+' + d.joined, d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
-      ['Отписались', '−' + d.left, d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
+      // Знак ставится только при движении: «+0» и «−0» читаются как
+      // сломанная вёрстка, а не как «ничего не произошло».
+      ['Подписались', d.joined ? '+' + d.joined : '0', d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
+      ['Отписались', d.left ? '−' + d.left : '0', d.filter.days ? `за ${d.filter.days} дней` : 'за всё время'],
       ['Пришли из бота', c.afterStart,
         c.people ? `${share(c.afterStart, c.people)} от ${c.people} пришедших` : 'пришедших пока нет'],
     ];

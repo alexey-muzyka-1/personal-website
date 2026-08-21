@@ -58,21 +58,37 @@ h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
 
 .wrap { max-width: 1120px; margin: 0 auto; padding: 20px 20px 72px; }
 
-/* Шапка в два уровня. Название и разделы в одной строке читались как
-   пять равных пунктов, хотя «Личная воронка» это не раздел, а всё
-   вместе. Теперь сверху имя и время съёмки, под ними — разделы. */
+/* Шапка в два уровня.
+   Верхний ряд — системы: бот, канал, люди. Это разные источники данных
+   и разные вопросы, и плоский ряд из пяти вкладок про это врал.
+   Нижний — страницы внутри системы, и он есть не у всех. */
 .top { margin: 0 0 20px; padding-bottom: 0; border-bottom: 1px solid var(--line); }
 .top .line {
   display: flex; flex-wrap: wrap; gap: 6px 18px;
-  align-items: baseline; margin: 0 0 10px;
+  align-items: baseline; margin: 0 0 14px;
 }
 .brand { font-size: 1.1rem; font-weight: 600; text-decoration: none; color: var(--fg); }
 .top .grow { margin-left: auto; color: var(--muted); font-size: .82rem; }
 
-.tabs { display: flex; flex-wrap: wrap; gap: 20px; }
+/* Раздел крупнее вкладки: вес показывает, что переход между ними — это
+   смена системы, а не соседняя страница того же отчёта. */
+.sections { display: flex; flex-wrap: wrap; gap: 4px; }
+.sections a {
+  display: block; padding: 8px 14px 9px; border-radius: 8px 8px 0 0;
+  text-decoration: none; color: var(--muted); line-height: 1.25;
+  transition: background-color .15s ease, color .15s ease;
+}
+.sections a:hover { background: color-mix(in srgb, var(--pick) 60%, transparent); color: var(--fg); }
+.sections a[aria-current="page"] { background: var(--pick); color: var(--fg); font-weight: 600; }
+.sections .hint {
+  display: block; font-size: .72rem; font-weight: 400; color: var(--muted);
+}
+.sections a[aria-current="page"] .hint { color: var(--muted); }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 14px 0; }
 .tabs a {
-  text-decoration: none; color: var(--muted); font-size: .92rem;
-  padding: 0 0 10px; margin-bottom: -1px;
+  text-decoration: none; color: var(--muted); font-size: .88rem;
+  padding: 0 0 9px; margin-bottom: -1px;
   border-bottom: 2px solid transparent;
 }
 .tabs a:hover { color: var(--fg); }
