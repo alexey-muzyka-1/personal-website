@@ -1,0 +1,135 @@
+---
+// Страница-обложка: ровно один кадр 1200 × 630, из которого скрипт
+// снимает PNG (scripts/covers.mjs).
+//
+// Почему страница, а не генератор картинок в коде: обложка должна
+// выглядеть как шапка статьи, а шапка статьи — это CSS сайта. Любой
+// отдельный рисовальщик пришлось бы догонять руками при каждой правке
+// типографики, и он бы отставал молча.
+//
+// Страницы остаются в сборке: их удобно открыть и посмотреть глазами.
+// В поиск они не идут — noindex и мимо карты сайта.
+import { covers } from '../../data/covers';
+
+export function getStaticPaths() {
+  return covers.map((cover) => ({ params: { slug: cover.slug }, props: { cover } }));
+}
+
+const { cover } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{cover.title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Lora:wght@400;500;600&display=swap"
+  />
+  <style>
+    /* Значения повторяют global.css, но взяты жёстко: кадр обязан быть
+       одинаковым при любой теме системы. Тёмная обложка в светлом чате
+       выглядит чужой вставкой. */
+    :root {
+      --bg: #f7f5f0;
+      --fg: #2b2926;
+      --muted: #6f6a5f;
+      --line: #e6e2d8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      width: 1200px;
+      height: 630px;
+      /* Тот же тёплый градиент, что у сделанных руками обложек статей:
+         одна семья в чате, а не три разных стиля подряд. */
+      background:
+        radial-gradient(120% 90% at 92% 6%, #f3e7dd 0%, transparent 58%),
+        var(--bg);
+      color: var(--fg);
+      font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+      overflow: hidden;
+    }
+    .frame {
+      width: 100%; height: 100%;
+      padding: 64px 80px;
+      display: flex; flex-direction: column;
+    }
+    /* Текст висит в середине кадра, а не прижат к верху. Заголовки у нас
+       разной длины: при коротком между текстом и подвалом оставалась
+       дыра в треть картинки, и кадр читался как недоделанный. */
+    .body { margin: auto 0; }
+    /* Метка сверху — как на обложках статей: маленький знак и адрес.
+       Картинку смотрят вырванной из контекста, и чья она должно быть
+       понятно раньше, чем прочитан заголовок. */
+    .mark { display: flex; align-items: center; gap: 14px; }
+    .mark .badge {
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 1px solid var(--line);
+      display: grid; place-items: center;
+      font-size: 17px; font-weight: 600; letter-spacing: .06em;
+      color: var(--fg);
+    }
+    .mark .site { font-size: 19px; color: var(--muted); }
+
+    .kicker {
+      font-size: 20px; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 500;
+      /* Кегль подбирается под длину: заголовок в две строки читается,
+         в четыре — уже абзац, а не заголовок. */
+      font-size: var(--size);
+      line-height: 1.12;
+      letter-spacing: -0.015em;
+      margin: 28px 0 0;
+      text-wrap: balance;
+    }
+    .sub {
+      margin: 24px 0 0;
+      font-size: 26px; line-height: 1.5;
+      color: var(--muted);
+      max-width: 46ch;
+      /* Подзаголовок обрезается по строкам, а не выталкивает подвал за
+         край кадра: длину описания задаёт статья, а не обложка. */
+      display: -webkit-box; -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3; overflow: hidden;
+    }
+    .foot {
+      margin-top: auto; padding-top: 28px;
+      border-top: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 20px; color: var(--muted);
+    }
+    .foot .who { color: var(--fg); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div
+    class="frame"
+    style={`--size: ${cover.title.length > 46 ? '62px' : '76px'}`}
+  >
+    <div class="mark">
+      <span class="badge">ЛМ</span>
+      <span class="site">alexeymuzyka.com</span>
+    </div>
+
+    <div class="body">
+      <div class="kicker">{cover.kicker}</div>
+      <h1>{cover.title}</h1>
+      <p class="sub">{cover.subtitle}</p>
+    </div>
+    <div class="foot">
+      <span class="who">Алексей Музыка</span>
+      <span>{cover.foot}</span>
+    </div>
+  </div>
+</body>
+</html>
